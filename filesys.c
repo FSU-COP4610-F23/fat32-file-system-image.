@@ -132,20 +132,65 @@ void display_boot_sector_info(const boot_sector_info *info) {
     printf("Image Size: %u bytes\n", info->image_size);
 }
 
+// void run_shell(const char *imageName, boot_sector_info *info) {
+//     char command[100];
+//     while (1) {
+//         printf("[%s]/>\n", imageName);
+//         scanf("%s", command);
+
+//         if (strcmp(command, "exit") == 0) {
+//             break;
+//         } else if (strcmp(command, "info") == 0) {
+//             display_boot_sector_info(info);
+//         } else {
+//             printf("Unknown command: %s\n", command);
+//         }
+//     }
+// }
+
+
 void run_shell(const char *imageName, boot_sector_info *info) {
-    char command[100];
+    char input[100];
+    char *command;
+    char *arguments[10]; // Assuming a maximum of 10 arguments
+    int argCount;
+
     while (1) {
         printf("[%s]/>\n", imageName);
-        scanf("%s", command);
+        fgets(input, sizeof(input), stdin); // Read the entire line
 
-        if (strcmp(command, "exit") == 0) {
+        // Remove newline character
+        input[strcspn(input, "\n")] = 0;
+
+        // Parse the command and arguments
+        command = strtok(input, " ");
+        argCount = 0;
+        while (command != NULL && argCount < 10) {
+            arguments[argCount++] = command;
+            command = strtok(NULL, " ");
+        }
+
+        if (arguments[0] == NULL) {
+            continue; // No command entered
+        }
+
+        // Now handle the commands
+        if (strcmp(arguments[0], "exit") == 0) {
             break;
-        } else if (strcmp(command, "info") == 0) {
+        } else if (strcmp(arguments[0], "info") == 0) {
             display_boot_sector_info(info);
+        } else if (strcmp(arguments[0], "open") == 0) {
+            if (argCount >= 3) {
+                // Call open function with arguments[1] as filename and arguments[2] as mode
+                open_file(arguments[1], arguments[2]);
+            } else {
+                printf("Usage: open <filename> <mode>\n");
+            }
         } else {
-            printf("Unknown command: %s\n", command);
+            printf("Unknown command: %s\n", arguments[0]);
         }
     }
 }
+
 
 
