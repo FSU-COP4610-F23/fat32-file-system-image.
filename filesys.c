@@ -24,8 +24,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    const char *imagePath = argv[1];
-    FILE *file = fopen(imagePath, "rb");
+    const char *image_path = argv[1];
+    FILE *file = fopen(image_path, "rb");
     if (file == NULL) {
         perror("Error opening image file");
         return 1;
@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
     boot_sector_info bootInfo;
     parse_boot_sector(file, &bootInfo);
 
-    run_shell(imagePath, &bootInfo);
+    run_shell(image_path, &bootInfo);
 
     fclose(file);
     return 0;
