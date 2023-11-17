@@ -1,6 +1,3 @@
-// below is the pseudocode 
-
-
 #include <cstdint>
 typedef struct __attribute__((packed)) BPB {
     // below 36 bytes are the main bpb
