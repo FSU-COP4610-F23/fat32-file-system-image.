@@ -1,4 +1,5 @@
 # Define the compiler
+# Define the compiler
 CC = gcc
 
 CFLAGS = -Wall -Wextra -g -std=c99
