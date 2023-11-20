@@ -35,9 +35,8 @@ void display_boot_sector_info(const boot_sector_info *info);
 void run_shell(const char *imageName, boot_sector_info *info);
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) 
-    {
-        printf("Usage: ./filesys [FAT32 ISO]\n"); // if there are not enough arguments
+    if (argc != 2) {
+        printf("Usage: ./filesys [FAT32 ISO]\n");
         return 1;
     }
 
@@ -58,7 +57,8 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void parse_boot_sector(FILE *file, boot_sector_info *info) {
+void parse_boot_sector(int file, boot_sector_info *info) {
+    
     // Read and parse the boot sector
     // These are fake values, we will need to change these
       // Example value
@@ -164,49 +164,18 @@ void display_boot_sector_info(const boot_sector_info *info) {
     printf("Image Size: %lld bytes\n", (long long)info->image_size);
 }
 
-// void run_shell(const char *imageName, boot_sector_info *info) {
-//     char command[100];
-//     while (1) {
-//         printf("[%s]/>\n", imageName);
-//         scanf("%s", command);
-
-//         if (strcmp(command, "exit") == 0) {
-//             break;
-//         } else if (strcmp(command, "info") == 0) {
-//             display_boot_sector_info(info);
-//         } else {
-//             printf("Unknown command: %s\n", command);
-//         }
-//     }
-// }
-
-
 void run_shell(const char *imageName, boot_sector_info *info) {
-    char input[100];
-    char *command;
-    char *arguments[10]; // Assuming a maximum of 10 arguments
-    int argCount;
-
+    char command[100];
     while (1) {
         printf("[%s]/>", imageName);
         scanf("%s", command);
 
         if (strcmp(command, "exit") == 0) {
             break;
-        } else if (strcmp(arguments[0], "info") == 0) {
+        } else if (strcmp(command, "info") == 0) {
             display_boot_sector_info(info);
-        } else if (strcmp(arguments[0], "open") == 0) {
-            if (argCount >= 3) {
-                // Call open function with arguments[1] as filename and arguments[2] as mode
-                open_file(arguments[1], arguments[2]);
-            } else {
-                printf("Usage: open <filename> <mode>\n");
-            }
         } else {
-            printf("Unknown command: %s\n", arguments[0]);
+            printf("Unknown command: %s\n", command);
         }
     }
 }
-
-
-
