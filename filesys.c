@@ -222,7 +222,7 @@ void run_shell(const char *imageName, FileSystemState *fsState)
     char command[100];
     while (1)
     {
-        printf("[%s]/>", imageName);
+        printf("[%s]/> ", imageName);
         scanf("%s", command);
 
         if (strcmp(command, "exit") == 0)
