@@ -392,6 +392,11 @@ void run_shell(const char *imageName, FileSystemState *fsState)
                 printf("Error: File not opened or does not exist\n");
             }
         }
+        else if (strcmp(command, "rm") == 0)
+        {
+            char filename[256];
+            scanf("%s", filename); 
+        }
         else
         {
             printf("Unknown command: %s\n", command);
