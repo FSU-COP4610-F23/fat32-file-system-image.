@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 // Define the structure for the boot sector information
 typedef struct __attribute__((packed)) BPB
@@ -44,12 +45,16 @@ typedef struct
     boot_sector_info bootInfo;
     OpenedFile openedFiles[100];
     int openedFilesCount;
+    char currentWorkingDir[256];
 } FileSystemState;
 
 typedef struct __attribute__((packed)) DirectoryEntry
 {
     char name[11];
     uint8_t attributes;
+    uint16_t DIR_FstClusHI;
+    uint16_t DIR_FstClusLO;
+
 } DirectoryEntry;
 
 // Function prototypes
@@ -346,7 +351,118 @@ void list_directory(int file, FileSystemState *fsState) {
     }
 }
 
+// ********************************************************************************
+// *           Funtion added for cd implementation
+// ********************************************************************************
 
+bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *dirName, uint32_t currentCluster, uint32_t *nextCluster) 
+{
+    while (currentCluster < 0x0FFFFFF8) 
+    {
+        uint32_t sector = fsState->bootInfo.rootClusPosition + (currentCluster - 2) * fsState->bootInfo.BPB_SecPerClus;
+        
+        for (int i = 0; i < fsState->bootInfo.BPB_SecPerClus; ++i) 
+        {
+            off_t offset = sector * fsState->bootInfo.BPB_BytsPerSec + i * sizeof(DirectoryEntry);
+            lseek(fileDescriptor, offset, SEEK_SET);
+
+            DirectoryEntry entry;
+            ssize_t read_bytes = read(fileDescriptor, &entry, sizeof(DirectoryEntry));
+            if (read_bytes != sizeof(DirectoryEntry)) 
+            {
+                // Handle read error
+                break;
+            }
+
+            if (entry.name[0] == 0x00) 
+            {
+                // End of the directory entries
+                return false;
+            }
+
+            if ((unsigned char)entry.name[0] == 0xE5) 
+            {
+                continue; // Skip deleted entries
+            }
+
+            // Convert entry name to a regular C string for comparison
+            char formattedName[12];
+            strncpy(formattedName, entry.name, 11);
+            formattedName[11] = '\0';
+
+            // Check if the entry is a directory and matches dirName
+            if ((entry.attributes & 0x10) && strcmp(formattedName, dirName) == 0) 
+            {
+                // Extract starting cluster of the found directory from the entry
+                // *nextCluster = (entry.startingClusterHigh << 16) | entry.startingClusterLow;
+                *nextCluster = (entry.DIR_FstClusHI<< 16) | entry.DIR_FstClusLO;
+                return true;
+            }
+        }
+
+        // Move to the next cluster
+        // Read the FAT to find the next cluster
+        uint32_t FATOffset = currentCluster * 4;
+        uint32_t FATSector = fsState->bootInfo.BPB_RsvdSecCnt + (FATOffset / fsState->bootInfo.BPB_BytsPerSec);
+        uint32_t FATEntOffset = FATOffset % fsState->bootInfo.BPB_BytsPerSec;
+
+        lseek(fileDescriptor, (FATSector * fsState->bootInfo.BPB_BytsPerSec) + FATEntOffset, SEEK_SET);
+        uint32_t nextClusterValue;
+        read(fileDescriptor, &nextClusterValue, sizeof(nextClusterValue));
+        currentCluster = nextClusterValue & 0x0FFFFFFF;
+
+        if (currentCluster >= 0x0FFFFFF8) 
+        {
+            break;
+        }
+    }
+    
+    return false;
+}
+
+void change_directory(FileSystemState * fsState, const char *dirname, int fileDescriptor)
+{
+    if(!fsState || !dirname)
+    {
+        printf("invalud arguments\n"); 
+        return;
+    }
+
+    if (strcmp(dirname, "/") == 0) // for root directory
+    {
+        strncpy(fsState->currentWorkingDir, "/", sizeof(fsState->currentWorkingDir));
+        return;
+    }
+
+    char path[256]; 
+    strncpy(path, dirname, sizeof(path)); 
+    char * token = strtok(path, "/"); 
+
+    uint32_t currentCluster;
+    if(strcmp(fsState->currentWorkingDir, "/") == 0)
+        currentCluster = fsState->bootInfo.rootClusPosition; 
+    else
+    {
+        // retrive current directory' starting cluster 
+    }
+
+    while (token != NULL)
+    {
+        uint32_t nextCluster; 
+        if (find_directory_in_cluster(fileDescriptor, fsState, token, currentCluster, &nextCluster)) 
+        {
+            currentCluster = nextCluster;
+        } 
+        else 
+        {
+            printf("directory '%s' not found\n", token);
+            return;
+        }
+        token = strtok(NULL, "/"); 
+    }
+
+    strncpy(fsState->currentWorkingDir, dirname, sizeof(fsState->currentWorkingDir)); 
+}
 
 // void run_shell(const char *imageName, boot_sector_info *info)
 void run_shell(const char *imageName, FileSystemState *fsState, int file)
@@ -365,6 +481,12 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
         {
             // display_boot_sector_info(info);
             display_boot_sector_info(fsState);
+        }
+        else if (strcmp(command, "cd") == 0)
+        {
+            char dirname[256]; 
+            scanf("%s", dirname); 
+            change_directory(fsState, dirname, file); 
         }
         else if (strcmp(command, "ls") == 0)
         {
