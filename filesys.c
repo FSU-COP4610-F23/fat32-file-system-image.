@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <ctype.h>
 
 // Define the structure for the boot sector information
 typedef struct __attribute__((packed)) BPB
@@ -46,6 +47,7 @@ typedef struct
     OpenedFile openedFiles[100];
     int openedFilesCount;
     char currentWorkingDir[256];
+    uint32_t currentCluster;
 } FileSystemState;
 
 typedef struct __attribute__((packed)) DirectoryEntry
@@ -93,16 +95,20 @@ int main(int argc, char *argv[])
     if (fsState == NULL)
     {
         perror("Failed to allocate memory for FileSystemState");
+        close(file);
         return 1;
     }
     memset(fsState, 0, sizeof(FileSystemState));
-
+    strncpy(fsState->currentWorkingDir, "/", sizeof(fsState->currentWorkingDir) - 1); // Initialize to root
+    fsState->currentCluster = fsState->bootInfo.BPB_RootClus;
+    
     // parse_boot_sector(file, &bootInfo);
     parse_boot_sector(file, fsState);
     // run_shell(image_path, &bootInfo);
     run_shell(image_path, fsState, file);
     close(file);
     free(fsState);
+
     return 0;
 }
 
@@ -231,125 +237,141 @@ void display_boot_sector_info(const FileSystemState *fsState)
     printf("Image Size: %lld bytes\n", (long long)fsState->bootInfo.image_size);
 }
 
+void print_directory_entries(int file, FileSystemState *fsState, uint32_t cluster) 
+{
+    bool firstEntry = true;
 
+    while (cluster < 0x0FFFFFF8) 
+    {
+        for (int sectorOffset = 0; sectorOffset < fsState->bootInfo.BPB_SecPerClus; ++sectorOffset) 
+        {
+            uint32_t sector = ((cluster - 2) * fsState->bootInfo.BPB_SecPerClus) + fsState->bootInfo.BPB_RsvdSecCnt + 
+                              (fsState->bootInfo.BPB_NumFATs * fsState->bootInfo.BPB_FATSz32) + sectorOffset;
 
-// hereeeeeeeeeeeeeeee
-// 12:58 am - im assuming its this function breaking ls but fuuuuuuuuuuuuuuuuuuuuuuuuu
-void print_directory_entries(int file, FileSystemState *fsState, uint32_t cluster) {
-     while (cluster < 0x0FFFFFF8) {
-        uint32_t sector = fsState->bootInfo.rootClusPosition + (cluster - 2) * fsState->bootInfo.BPB_SecPerClus;
-        for (int i = 0; i < fsState->bootInfo.BPB_SecPerClus; ++i) {
-            off_t offset = sector * fsState->bootInfo.BPB_BytsPerSec + i * sizeof(DirectoryEntry);
-            lseek(file, offset, SEEK_SET);
+            for (int entryOffset = 0; entryOffset < fsState->bootInfo.BPB_BytsPerSec; entryOffset += sizeof(DirectoryEntry)) 
+            {
+                off_t offset = sector * fsState->bootInfo.BPB_BytsPerSec + entryOffset;
+                if (lseek(file, offset, SEEK_SET) == (off_t)-1) {
+                    perror("Error seeking directory entry");
+                    return;
+                }
 
-            DirectoryEntry entry;
-            ssize_t read_bytes = read(file, &entry, sizeof(DirectoryEntry));
-            if (read_bytes != sizeof(DirectoryEntry)) {
-                printf("Error reading directory entry\n");
-                break;
+                DirectoryEntry entry;
+                errno = 0; 
+                ssize_t read_bytes = read(file, &entry, sizeof(DirectoryEntry));
+
+                if (read_bytes == -1) 
+                {
+                    perror("Error reading directory entry");
+                    return;
+                } 
+                else if (read_bytes != sizeof(DirectoryEntry)) 
+                {
+                    printf("Incomplete directory entry read\n");
+                    return;
+                }   
+
+                if ((unsigned char)entry.name[0] == 0x00) 
+                {
+                    if (!firstEntry)
+                    {
+                        printf("\n");
+                    }
+                    return; // End of directory
+                }
+
+                if ((unsigned char)entry.name[0] == 0xE5 || entry.attributes == 0x0F || strncmp(entry.name, "l", 1) == 0 || strncmp(entry.name, "xN", 2) == 0) {
+                    continue; // Skip deleted or LFN entries
+                }
+
+                if (!firstEntry)
+                {
+                    printf(" ");
+                }
+                firstEntry = false; 
+
+                // // Print the short name (8.3 format), ensuring printable characters
+                char name[12];
+                strncpy(name, entry.name, 11);
+                name[11] = '\0'; // Null-terminate for safety
+
+                // if (strncmp(name, "xN", 2) == 0) 
+                // {
+                //     continue;
+                // }
+                // Print only printable characters, stop at first space
+                for (int i = 0; i < 11 && name[i] != ' '; i++) 
+                {
+                    if (isprint((unsigned char)name[i])) 
+                    {
+                        printf("%c", name[i]);
+                    }
+                }
+
             }
-
-            if (entry.name[0] == 0x00 || entry.name[0] == 0xE5 || entry.attributes == 0x0F) {
-                continue; // Skip empty or deleted entries
-            }
-
-            printf("Name: %s\n", entry.name);
-            printf("Attributes: %u\n", entry.attributes);
         }
 
+        
+
         // Interpret FAT entries to update the cluster value
-        uint32_t FATOffset = cluster * 4 / fsState->bootInfo.BPB_BytsPerSec;
-        uint32_t FATSector = fsState->bootInfo.dataRegionAddress + FATOffset;
-        lseek(file, FATSector * fsState->bootInfo.BPB_BytsPerSec, SEEK_SET);
+        uint32_t FATOffset = cluster * 4;
+        uint32_t FATSecNum = fsState->bootInfo.BPB_RsvdSecCnt + (FATOffset / fsState->bootInfo.BPB_BytsPerSec);
+        uint32_t FATEntOffset = FATOffset % fsState->bootInfo.BPB_BytsPerSec;
+
+        if (lseek(file, (FATSecNum * fsState->bootInfo.BPB_BytsPerSec) + FATEntOffset, SEEK_SET) == (off_t)-1) {
+            perror("Error seeking FAT entry");
+            return;
+        }
 
         uint32_t FATEntry;
         ssize_t read_bytes = read(file, &FATEntry, sizeof(FATEntry));
-        if (read_bytes != sizeof(FATEntry)) {
-            printf("Error reading FAT entry\n");
-            break;
+        if (read_bytes != sizeof(FATEntry)) 
+        {
+            perror("Error reading FAT entry");
+            return;
         }
 
         cluster = FATEntry & 0x0FFFFFFF;
-
-        // Check for end-of-chain marker to exit the loop
         if (cluster >= 0x0FFFFFF8) {
-            break;
+            printf("End of cluster chain\n");
+            return; // End of cluster chain
         }
 
-
-        /*
-            Take 2 omg
-
-        while (cluster < 0x0FFFFFF8) {
-        uint32_t sector = fsState->bootInfo.rootClusPosition + (cluster - 2) * fsState->bootInfo.BPB_SecPerClus;
-        for (int i = 0; i < fsState->bootInfo.BPB_SecPerClus; ++i) {
-            off_t offset = sector * fsState->bootInfo.BPB_BytsPerSec + i * sizeof(DirectoryEntry);
-            lseek(file, offset, SEEK_SET);
-
-            DirectoryEntry entry;
-            ssize_t read_bytes = read(file, &entry, sizeof(DirectoryEntry));
-            if (read_bytes != sizeof(DirectoryEntry)) {
-                printf("Error reading directory entry\n");
-                break;
-            }
-
-            if (entry.name[0] == 0x00 || entry.name[0] == 0xE5 || entry.attributes == 0x0F) {
-                continue; // Skip empty or deleted entries
-            }
-
-            printf("Name: %s\n", entry.name);
-            printf("Attributes: %u\n", entry.attributes);
-        }
-
-        // Read directory entry
-        // Parse and print the directory entry details
-
-    */
-
-
-    /*
-
-    TAKE 1 
-
-    uint32_t sector = fsState->bootInfo.dataRegionAddress + (cluster - 2) * fsState->bootInfo.BPB_SecPerClus;
-
-    for (int i = 0; i < fsState->bootInfo.BPB_SecPerClus; ++i) {
-        off_t offset = sector * fsState->bootInfo.BPB_BytsPerSec + i * fsState->bootInfo.BPB_BytsPerSec;
-        lseek(file, offset, SEEK_SET);
-
-         DirectoryEntry entry;
-        ssize_t read_bytes = read(file, &entry, sizeof(DirectoryEntry));
-        if (read_bytes != sizeof(DirectoryEntry)) {
-            printf("Error reading directory entry\n");
-            break;
-        }
-
-        // Interpret the directory entry fields and print relevant information
-        if (entry.name[0] == 0x00 || entry.name[0] == 0xE5 || entry.attributes == 0x0F) {
-            // Skip empty or deleted entries
-            continue;
-        }
-
-        // Print directory entry details
-        printf("Name: %s\n", entry.name);
-        printf("Attributes: %u\n", entry.attributes);
-
-        // Read directory entry
-        // Parse and print the directory entry details
-    
-    }
-        */
+        printf("Next cluster: %u\n", cluster);
     } 
+
 }
 
-void list_directory(int file, FileSystemState *fsState) {
-    uint32_t cluster = fsState->bootInfo.rootClusPosition;
-    while (cluster < 0x0FFFFFF8) {
+
+
+
+void list_directory(int file, FileSystemState *fsState) 
+{
+    uint32_t cluster = fsState->bootInfo.BPB_RootClus; // Start with the root cluster
+
+    while (cluster < 0x0FFFFFF8) { // 0x0FFFFFF8 is the end-of-chain marker in FAT32
         print_directory_entries(file, fsState, cluster);
-        // Follow the cluster chain
-        // Update 'cluster' to the next cluster in the chain
+
+        // Get the next cluster in the chain from the FAT
+        uint32_t FATOffset = cluster * 4; // Each FAT32 entry is 4 bytes
+        uint32_t FATSecNum = fsState->bootInfo.BPB_RsvdSecCnt + (FATOffset / fsState->bootInfo.BPB_BytsPerSec);
+        uint32_t FATEntOffset = FATOffset % fsState->bootInfo.BPB_BytsPerSec;
+
+        if (lseek(file, (FATSecNum * fsState->bootInfo.BPB_BytsPerSec) + FATEntOffset, SEEK_SET) == (off_t)-1) {
+            perror("Error seeking FAT entry");
+            return;
+        }
+
+        uint32_t FATEntry;
+        if (read(file, &FATEntry, sizeof(FATEntry)) != sizeof(FATEntry)) {
+            perror("Error reading FAT entry");
+            return;
+        }
+
+        cluster = FATEntry & 0x0FFFFFFF; // Mask to get the next cluster number
     }
 }
+
 
 // ********************************************************************************
 // *           Funtion added for cd implementation
@@ -416,18 +438,81 @@ bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, con
             break;
         }
     }
-    
+
     return false;
+}
+
+uint32_t get_directory_cluster(int fileDescriptor, FileSystemState *fsState, const char *dirName, uint32_t parentCluster) {
+    DirectoryEntry entry;
+    uint32_t sector, offset;
+
+    // Iterate over each sector in the cluster
+    for (int sectorOffset = 0; sectorOffset < fsState->bootInfo.BPB_SecPerClus; ++sectorOffset) {
+        sector = ((parentCluster - 2) * fsState->bootInfo.BPB_SecPerClus) + fsState->bootInfo.BPB_RsvdSecCnt +
+                 (fsState->bootInfo.BPB_NumFATs * fsState->bootInfo.BPB_FATSz32) + sectorOffset;
+
+        // Iterate over each entry in the sector
+        for (offset = 0; offset < fsState->bootInfo.BPB_BytsPerSec; offset += sizeof(DirectoryEntry)) {
+            lseek(fileDescriptor, sector * fsState->bootInfo.BPB_BytsPerSec + offset, SEEK_SET);
+            if (read(fileDescriptor, &entry, sizeof(DirectoryEntry)) != sizeof(DirectoryEntry)) {
+                printf("Error reading directory entry\n");
+                return 0; // Error reading directory entry
+            }
+
+            // Check for end of directory
+            if (entry.name[0] == 0x00) {
+                return 0; // Directory not found
+            }
+
+            // Format the entry name for comparison
+            char formattedName[12];
+            strncpy(formattedName, entry.name, 11);
+            formattedName[11] = '\0'; // Null-terminate for safety
+
+            // Convert to upper case for comparison, as FAT32 is case-insensitive but often uses upper case
+            for (int i = 0; formattedName[i] != '\0'; i++) {
+                formattedName[i] = toupper(formattedName[i]);
+            }
+
+            // Check if the entry is a directory and matches dirName
+            if ((entry.attributes & 0x10) && strcmp(formattedName, dirName) == 0) {
+                // Found the directory, return its first cluster number
+                return (entry.DIR_FstClusHI << 16) | entry.DIR_FstClusLO;
+            }
+        }
+    }
+    return 0; // Directory not found
 }
 
 void change_directory(FileSystemState * fsState, const char *dirname, int fileDescriptor)
 {
-    if(!fsState || !dirname)
-    {
-        printf("invalud arguments\n"); 
+    // if(!fsState || !dirname)
+    // {
+    //     printf("invalud arguments\n"); 
+    //     return;
+    // }
+
+
+    if (strcmp(dirname, "..") == 0) {
+    // Handle going up to the parent directory
+    char *lastSlash = strrchr(fsState->currentWorkingDir, '/');
+    if (lastSlash != NULL && lastSlash != fsState->currentWorkingDir) {
+        *lastSlash = '\0'; // Go up one directory
+    } else {
+        strncpy(fsState->currentWorkingDir, "/", sizeof(fsState->currentWorkingDir) - 1); // Go to root
+    }
+} else if (strcmp(dirname, "/") != 0) {
+    // Append new directory to the path
+    if (strlen(fsState->currentWorkingDir) + strlen(dirname) + 1 < sizeof(fsState->currentWorkingDir)) {
+        if (strcmp(fsState->currentWorkingDir, "/") != 0) {
+            strncat(fsState->currentWorkingDir, "/", sizeof(fsState->currentWorkingDir) - strlen(fsState->currentWorkingDir) - 1);
+        }
+        strncat(fsState->currentWorkingDir, dirname, sizeof(fsState->currentWorkingDir) - strlen(fsState->currentWorkingDir) - 1);
+    } else {
+        printf("Error: Path too long\n");
         return;
     }
-
+}
     if (strcmp(dirname, "/") == 0) // for root directory
     {
         strncpy(fsState->currentWorkingDir, "/", sizeof(fsState->currentWorkingDir));
@@ -443,7 +528,31 @@ void change_directory(FileSystemState * fsState, const char *dirname, int fileDe
         currentCluster = fsState->bootInfo.rootClusPosition; 
     else
     {
+         printf("Current Working Directory: '%s'\n", fsState->currentWorkingDir); // Debug print
         // retrive current directory' starting cluster 
+         // Extract the last part of the current working directory as the directory name
+        char currentDirName[256] = {0};
+        char *lastSlash = strrchr(fsState->currentWorkingDir, '/');
+        if (lastSlash != NULL)
+        {
+            strncpy(currentDirName, lastSlash + 1, sizeof(currentDirName));
+
+            // Assuming the parent directory is the root (simplified case)
+            uint32_t parentCluster = fsState->bootInfo.BPB_RootClus;
+            currentCluster = get_directory_cluster(fileDescriptor, fsState, currentDirName, parentCluster);
+        
+            if (currentCluster == 0) 
+            {   
+                printf("Failed to find current directory cluster\n");
+                return;
+            }
+        }
+        else 
+        {
+            printf("Error: Could not parse current working directory\n");
+            return;
+        }
+
     }
 
     while (token != NULL)
@@ -464,14 +573,16 @@ void change_directory(FileSystemState * fsState, const char *dirname, int fileDe
     strncpy(fsState->currentWorkingDir, dirname, sizeof(fsState->currentWorkingDir)); 
 }
 
+
 // void run_shell(const char *imageName, boot_sector_info *info)
 void run_shell(const char *imageName, FileSystemState *fsState, int file)
 {
     char command[100];
     while (1)
     {
-        printf("[%s]/> ", imageName);
-        scanf("%s", command);
+        // printf("[%s]/> ", imageName);
+        printf("[%s]%s> ", imageName, fsState->currentWorkingDir);
+        scanf("%99s", command);
 
         if (strcmp(command, "exit") == 0)
         {
@@ -485,7 +596,7 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
         else if (strcmp(command, "cd") == 0)
         {
             char dirname[256]; 
-            scanf("%s", dirname); 
+            scanf("%255s", dirname); 
             change_directory(fsState, dirname, file); 
         }
         else if (strcmp(command, "ls") == 0)
