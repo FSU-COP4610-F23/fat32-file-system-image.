@@ -58,7 +58,7 @@ typedef struct __attribute__((packed)) DirectoryEntry
     uint16_t DIR_FstClusLO;
 
 } DirectoryEntry;
-
+//testing
 void parse_boot_sector(int file, FileSystemState *fsState);
 void display_boot_sector_info(const FileSystemState *fsState);
 void print_directory_entries(int file, FileSystemState *fsState, uint32_t cluster);
