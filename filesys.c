@@ -58,29 +58,21 @@ typedef struct
     ClusterStack directoryStack;
 } FileSystemState;
 
-// typedef struct __attribute__((packed)) DirectoryEntry
-// {
-//     char name[11];
-//     uint8_t attributes;
-//     uint16_t DIR_FstClusHI;
-//     uint16_t DIR_FstClusLO;
-
-// } DirectoryEntry;
 
 typedef struct __attribute__((packed)) DirectoryEntry
 {
-    char     DIR_Name[11];        // Short name
-    uint8_t  DIR_Attr;            // File attributes
-    uint8_t  DIR_NTRes;           // Reserved for use by Windows NT
-    uint8_t  DIR_CrtTimeTenth;    // Millisecond stamp at file creation time
-    uint16_t DIR_CrtTime;         // Time file was created
-    uint16_t DIR_CrtDate;         // Date file was created
-    uint16_t DIR_LstAccDate;      // Last access date
-    uint16_t DIR_FstClusHI;       // High word of this entry's first cluster number
-    uint16_t DIR_WrtTime;         // Time of last write
-    uint16_t DIR_WrtDate;         // Date of last write
-    uint16_t DIR_FstClusLO;       // Low word of this entry's first cluster number
-    uint32_t DIR_FileSize;        // 32-bit DWORD holding this file's size in bytes
+    char     DIR_Name[11]; 
+    uint8_t  DIR_Attr;       
+    uint8_t  DIR_NTRes;        
+    uint8_t  DIR_CrtTimeTenth; 
+    uint16_t DIR_CrtTime;    
+    uint16_t DIR_CrtDate;   
+    uint16_t DIR_LstAccDate; 
+    uint16_t DIR_FstClusHI;     
+    uint16_t DIR_WrtTime;      
+    uint16_t DIR_WrtDate;         
+    uint16_t DIR_FstClusLO;   
+    uint32_t DIR_FileSize;       
 } DirectoryEntry;
 
 
@@ -90,14 +82,11 @@ void display_boot_sector_info(const FileSystemState *fsState);
 void print_directory_entries(int file, FileSystemState *fsState);
 void list_directory(int file, FileSystemState *fsState);
 bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *dirName, uint32_t *nextCluster);
-// bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *dirName, uint32_t *nextCluster, uint32_t *foundCluster);
-// uint32_t get_next_cluster(int file, FileSystemState *fsState, uint32_t currentCluster);
 uint32_t get_next_cluster(int file, FileSystemState *fsState);
 void change_directory(FileSystemState *fsState, const char *dirname, int fileDescriptor);
 void run_shell(const char *imageName, FileSystemState *fsState, int file);
 void split_name_ext(const char *entryName, char *name, char *ext);
 void format_dir_name(const char *input, char *formatted);
-// FindResult find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *dirName, uint32_t startCluster);
 
 int main(int argc, char *argv[])
 {
@@ -352,7 +341,6 @@ uint32_t get_next_cluster(int file, FileSystemState *fsState) {
 void change_directory(FileSystemState *fsState, const char *dirname, int fileDescriptor)
 {
     char formattedDirName[12];
-    // uint32_t currentCluster = fsState->currentCluster;
     uint32_t nextCluster;
 
     if (strcmp(dirname, "/") == 0 || strcmp(dirname, "..") == 0)
@@ -368,14 +356,12 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
     if (find_directory_in_cluster(fileDescriptor, fsState, formattedDirName, &nextCluster))
     {
         printf("change_directory This is nextCLuster%u\n", nextCluster );
-        // Update the current working directory
         if (fsState->currentWorkingDir[strlen(fsState->currentWorkingDir) - 1] != '/')
         {
             strcat(fsState->currentWorkingDir, "/");
         }
         strcat(fsState->currentWorkingDir, dirname);
 
-        // Update the current cluster
         fsState->currentCluster = nextCluster;
         printf("change_directory Changed directory to '%s', new cluster: %u\n", fsState->currentWorkingDir, fsState->currentCluster);
     }
@@ -401,8 +387,7 @@ bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, con
 {
     bool check = false; 
     char formattedDirName[12];
-    format_dir_name(dirName, formattedDirName); // Format the input directory name for FAT32 comparison
-    // currentCluster = fsState->currentCluster;
+    format_dir_name(dirName, formattedDirName); 
     
     while (fsState->currentCluster < 0x0FFFFFF8)
     {
@@ -496,7 +481,6 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
     char command[100];
     while (1)
     {
-        // printf("[%s]/> ", imageName);
         printf("[%s]%s> ", imageName, fsState->currentWorkingDir);
         scanf("%99s", command);
 
@@ -516,7 +500,6 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
         }
         else if (strcmp(command, "ls") == 0)
         {
-            // list_directory(file, fsState);
             print_directory_entries(file, fsState);
             
         }
