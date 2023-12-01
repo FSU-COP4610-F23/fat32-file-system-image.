@@ -59,41 +59,37 @@ typedef struct
     ClusterStack directoryStack;
 } FileSystemState;
 
-
 typedef struct __attribute__((packed)) DirectoryEntry
 {
-    char     DIR_Name[11]; 
-    uint8_t  DIR_Attr;       
-    uint8_t  DIR_NTRes;        
-    uint8_t  DIR_CrtTimeTenth; 
-    uint16_t DIR_CrtTime;    
-    uint16_t DIR_CrtDate;   
-    uint16_t DIR_LstAccDate; 
-    uint16_t DIR_FstClusHI;     
-    uint16_t DIR_WrtTime;      
-    uint16_t DIR_WrtDate;         
-    uint16_t DIR_FstClusLO;   
-    uint32_t DIR_FileSize;       
+    char DIR_Name[11];
+    uint8_t DIR_Attr;
+    uint8_t DIR_NTRes;
+    uint8_t DIR_CrtTimeTenth;
+    uint16_t DIR_CrtTime;
+    uint16_t DIR_CrtDate;
+    uint16_t DIR_LstAccDate;
+    uint16_t DIR_FstClusHI;
+    uint16_t DIR_WrtTime;
+    uint16_t DIR_WrtDate;
+    uint16_t DIR_FstClusLO;
+    uint32_t DIR_FileSize;
 } DirectoryEntry;
-
-
 
 void parse_boot_sector(int file, FileSystemState *fsState);
 void display_boot_sector_info(const FileSystemState *fsState);
 void print_directory_entries(int file, FileSystemState *fsState);
 void list_directory(int file, FileSystemState *fsState);
 bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *dirName, uint32_t *nextCluster);
-bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *fileName, uint32_t *firstCluster); 
+bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *fileName, uint32_t *firstCluster);
 uint32_t get_next_cluster(int file, FileSystemState *fsState);
 void change_directory(FileSystemState *fsState, const char *dirname, int fileDescriptor);
 void run_shell(const char *imageName, FileSystemState *fsState, int file);
 void split_name_ext(const char *entryName, char *name, char *ext);
 void format_dir_name(const char *input, char *formatted);
-void push_cluster(ClusterStack *stack, uint32_t cluster); 
+void push_cluster(ClusterStack *stack, uint32_t cluster);
 void add_to_opened_files(FileSystemState *fsState, const char *filename, uint32_t firstCluster, int fd, const char *mode);
 uint32_t pop_cluster(ClusterStack *stack);
 int determine_open_flags(const char *mode);
-
 
 int main(int argc, char *argv[])
 {
@@ -262,14 +258,20 @@ void print_directory_entries(int file, FileSystemState *fsState)
                     continue; // Skip non-printable names and names starting with xN
                 }
 
-                if (entry.DIR_Attr & 0x10) {
+                if (entry.DIR_Attr & 0x10)
+                {
                     // Directory: Blue color
-                    printf("\033[1;34m%s\033[0m ", name); // Append '/' to indicate directory
-                } else {
+                    printf("\033[1;34m%s\033[0m ", name);
+                }
+                else
+                {
                     // Regular File: Default color
-                    if (ext[0] != '\0') {
+                    if (ext[0] != '\0')
+                    {
                         printf("%s.%s ", name, ext); // Print file name with extension
-                    } else {
+                    }
+                    else
+                    {
                         printf("%s ", name); // Print file name only
                     }
                 }
@@ -278,7 +280,8 @@ void print_directory_entries(int file, FileSystemState *fsState)
 
         // Update the cluster value using get_next_cluster
         fsState->currentCluster = get_next_cluster(file, fsState);
-        if (fsState->currentCluster == 0) {
+        if (fsState->currentCluster == 0)
+        {
             perror("Error: Reached the end of the cluster chain or an error occurred");
             return;
         }
@@ -308,11 +311,13 @@ void split_name_ext(const char *entryName, char *name, char *ext)
     ext[j] = '\0';
 }
 
-uint32_t get_next_cluster(int file, FileSystemState *fsState) {
+uint32_t get_next_cluster(int file, FileSystemState *fsState)
+{
     // printf("Debug: Entering get_next_cluster with currentCluster = %u\n", fsState->currentCluster);
 
     // Validate cluster range
-    if (fsState->currentCluster < 2 || fsState->currentCluster >= 0x0FFFFFF8) {
+    if (fsState->currentCluster < 2 || fsState->currentCluster >= 0x0FFFFFF8)
+    {
         // printf("Error: Invalid current cluster number %u\n", fsState->currentCluster);
         return 0;
     }
@@ -324,7 +329,8 @@ uint32_t get_next_cluster(int file, FileSystemState *fsState) {
 
     // Seek to FAT entry
     off_t seekResult = lseek(file, (FATSecNum * fsState->bootInfo.BPB_BytsPerSec) + FATEntOffset, SEEK_SET);
-    if (seekResult == (off_t)-1) {
+    if (seekResult == (off_t)-1)
+    {
         // perror("Error seeking FAT entry");
         return 0;
     }
@@ -332,7 +338,8 @@ uint32_t get_next_cluster(int file, FileSystemState *fsState) {
     // Read FAT entry
     uint32_t FATEntry;
     ssize_t bytesRead = read(file, &FATEntry, sizeof(FATEntry));
-    if (bytesRead != sizeof(FATEntry)) {
+    if (bytesRead != sizeof(FATEntry))
+    {
         // perror("Error reading FAT entry");
         return 0;
     }
@@ -342,7 +349,8 @@ uint32_t get_next_cluster(int file, FileSystemState *fsState) {
     // Extract next cluster value
     uint32_t nextCluster = FATEntry & 0x0FFFFFFF;
     // printf("Debug: nextCluster calculated as %u\n", nextCluster);
-    if (nextCluster >= 0x0FFFFFF8) {
+    if (nextCluster >= 0x0FFFFFF8)
+    {
         // printf("Reached the end of the file or directory cluster chain.\n");
     }
     return nextCluster;
@@ -360,16 +368,22 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
         return;
     }
 
-    if (strcmp(dirname, "..") == 0) {
-        if (fsState->directoryStack.top >= 0) {
+    if (strcmp(dirname, "..") == 0)
+    {
+        if (fsState->directoryStack.top >= 0)
+        {
             fsState->currentCluster = pop_cluster(&fsState->directoryStack);
 
             // Update currentWorkingDir to reflect the parent directory
-            if (strcmp(fsState->currentWorkingDir, "/") != 0) {
+            if (strcmp(fsState->currentWorkingDir, "/") != 0)
+            {
                 char *lastSlash = strrchr(fsState->currentWorkingDir, '/');
-                if (lastSlash != fsState->currentWorkingDir) {
+                if (lastSlash != fsState->currentWorkingDir)
+                {
                     *lastSlash = '\0'; // Cut the string at the last slash
-                } else {
+                }
+                else
+                {
                     *(lastSlash + 1) = '\0'; // Keep the root '/'
                 }
             }
@@ -383,7 +397,6 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
         }
         return;
     }
-
 
     push_cluster(&fsState->directoryStack, fsState->currentCluster);
 
@@ -408,22 +421,29 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
     }
 }
 
-void push_cluster(ClusterStack *stack, uint32_t cluster) {
-    if (stack->top < MAX_DEPTH - 1) {
+void push_cluster(ClusterStack *stack, uint32_t cluster)
+{
+    if (stack->top < MAX_DEPTH - 1)
+    {
         stack->clusters[++stack->top] = cluster;
     }
 }
 
-uint32_t pop_cluster(ClusterStack *stack) {
-    if (stack->top >= 0) {
+uint32_t pop_cluster(ClusterStack *stack)
+{
+    if (stack->top >= 0)
+    {
         return stack->clusters[stack->top--];
     }
     return 0; // Return an invalid cluster number if stack is empty
 }
 
-int case_insensitive_compare(const char *str1, const char *str2) {
-    while (*str1 && *str2) {
-        if (tolower((unsigned char)*str1) != tolower((unsigned char)*str2)) {
+int case_insensitive_compare(const char *str1, const char *str2)
+{
+    while (*str1 && *str2)
+    {
+        if (tolower((unsigned char)*str1) != tolower((unsigned char)*str2))
+        {
             return tolower((unsigned char)*str1) - tolower((unsigned char)*str2);
         }
         str1++;
@@ -434,10 +454,10 @@ int case_insensitive_compare(const char *str1, const char *str2) {
 
 bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *dirName, uint32_t *nextCluster)
 {
-    bool check = false; 
+    bool check = false;
     char formattedDirName[12];
-    format_dir_name(dirName, formattedDirName); 
-    
+    format_dir_name(dirName, formattedDirName);
+
     while (fsState->currentCluster < 0x0FFFFFF8)
     {
 
@@ -467,16 +487,14 @@ bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, con
                     continue;
                 } // End or deleted entry
 
-
                 char formattedEntryName[12];
                 format_dir_name(entry.DIR_Name, formattedEntryName);
-                
 
                 if ((entry.DIR_Attr & 0x10) && case_insensitive_compare(formattedEntryName, formattedDirName) == 0)
                 {
                     *nextCluster = (entry.DIR_FstClusHI << 16) | entry.DIR_FstClusLO;
                     // printf("find directory in clster: nextCluster %u", *nextCluster);
-                    return true; 
+                    return true;
                 }
             }
         }
@@ -487,7 +505,7 @@ bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, con
         {
             break;
         } // Error or end of chain
-        
+
         if (check == true)
         {
             return check;
@@ -522,100 +540,134 @@ void format_dir_name(const char *input, char *formatted)
         formatted[j] = toupper((unsigned char)input[i]);
     }
 
-    printf("format_dir_name Formatted directory name: '%s'\n", formatted); // Debug print
+    // printf("format_dir_name Formatted directory name: '%s'\n", formatted); // Debug print
 }
 
-bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *fileName, uint32_t *firstCluster) {
+bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *fileName, uint32_t *firstCluster)
+{
     char formattedFileName[12];
-    format_dir_name(fileName, formattedFileName); // Formats fileName into the FAT32 8.3 filename format
+    format_dir_name(fileName, formattedFileName);
 
-    // uint32_t currentCluster = fsState->currentCluster;
+    // printf("Debug: Searching for file '%s' in the cluster %u\n", formattedFileName, fsState->currentCluster);
 
-    while (fsState->currentCluster < 0x0FFFFFF8) {
-                    
-
-        for (int sectorOffset = 0; sectorOffset < fsState->bootInfo.BPB_SecPerClus; ++sectorOffset) {
+    while (fsState->currentCluster < 0x0FFFFFF8)
+    {
+        for (int sectorOffset = 0; sectorOffset < fsState->bootInfo.BPB_SecPerClus; ++sectorOffset)
+        {
             uint32_t sector = ((fsState->currentCluster - 2) * fsState->bootInfo.BPB_SecPerClus) + fsState->bootInfo.BPB_RsvdSecCnt +
                               (fsState->bootInfo.BPB_NumFATs * fsState->bootInfo.BPB_FATSz32) + sectorOffset;
             off_t offset = sector * fsState->bootInfo.BPB_BytsPerSec;
 
-            for (int entryOffset = 0; entryOffset < fsState->bootInfo.BPB_BytsPerSec; entryOffset += sizeof(DirectoryEntry)) {
+            for (int entryOffset = 0; entryOffset < fsState->bootInfo.BPB_BytsPerSec; entryOffset += sizeof(DirectoryEntry))
+            {
                 lseek(fileDescriptor, offset + entryOffset, SEEK_SET);
                 DirectoryEntry entry;
-                if (read(fileDescriptor, &entry, sizeof(DirectoryEntry)) != sizeof(DirectoryEntry)) 
+                ssize_t bytesRead = read(fileDescriptor, &entry, sizeof(DirectoryEntry));
+                if (bytesRead != sizeof(DirectoryEntry))
                 {
-
-                    continue; // Unable to read entry, skip to next
+                    printf("Debug: Unable to read entry at offset %lld\n", (long long)(offset + entryOffset));
+                    continue;
                 }
 
-                if ((unsigned char)entry.DIR_Name[0] == 0x00) 
+                // printf("Debug: Found entry '%.11s'\n", entry.DIR_Name);
+
+                if (strncmp(entry.DIR_Name, formattedFileName, 11) == 0)
                 {
-                    printf("We read the file\n"); 
+                    // printf("Debug: Match found for file '%s'\n", formattedFileName);
+                    *firstCluster = ((uint32_t)entry.DIR_FstClusHI << 16) | entry.DIR_FstClusLO;
+                    return true;
+                }
+                if ((unsigned char)entry.DIR_Name[0] == 0x00)
+                {
+                    printf("Debug: Reached end of directory entries\n");
                     return false; // End of directory entries
                 }
 
-                if ((unsigned char)entry.DIR_Name[0] == 0xE5 || entry.DIR_Attr == 0x0F) {
-                    continue; // Deleted or LFN entry, skip
+                if ((unsigned char)entry.DIR_Name[0] == 0xE5 || entry.DIR_Attr == 0x0F || (entry.DIR_Attr & 0x18))
+                {
+                    continue; // Deleted, LFN, system file, or volume label
                 }
 
-                if (!(entry.DIR_Attr & 0x10) && case_insensitive_compare(entry.DIR_Name, formattedFileName) == 0) {
-                    // Found the file
-                    *firstCluster = ((uint32_t)entry.DIR_FstClusHI << 16) | entry.DIR_FstClusLO;
-                    printf("This is find_file_in_cluster first cluster %u\n", *firstCluster);
-                    return true;
+                // Check if the entry is not a directory, not a volume label, and not an LFN entry
+                if (!(entry.DIR_Attr & 0x10) && !(entry.DIR_Attr & 0x08) && entry.DIR_Attr != 0x0F)
+                {
+                    if (case_insensitive_compare(entry.DIR_Name, formattedFileName) == 0)
+                    {
+                        *firstCluster = ((uint32_t)entry.DIR_FstClusHI << 16) | entry.DIR_FstClusLO;
+                        return true;
+                    }
+                }
+                else
+                {
+                    printf("Debug: Entry '%.11s' not a file or not matching, attributes: %02X\n", entry.DIR_Name, entry.DIR_Attr);
                 }
             }
-
         }
+
         fsState->currentCluster = get_next_cluster(fileDescriptor, fsState);
     }
-
+    printf("Debug: File '%s' not found\n", formattedFileName);
     return false; // File not found
 }
 
-bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filename, const char *mode) {
-    printf("Debug: Attempting to open file '%s' with mode '%s'\n", filename, mode);
+bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filename, const char *mode)
+{
+    char formattedFilename[12];
+    format_dir_name(filename, formattedFilename); // Format the filename to FAT32 8.3 format
+
+    // printf("Debug: Attempting to open file '%s' (formatted as '%s') with mode '%s'\n", filename, formattedFilename, mode);
 
     // Check if file is already opened
-    for (int i = 0; i < fsState->openedFilesCount; i++) {
-        if (strcmp(fsState->openedFiles[i].filename, filename) == 0) {
-            printf("Error: file '%s' already opened\n", filename);
+    for (int i = 0; i < fsState->openedFilesCount; i++)
+    {
+        if (strcmp(fsState->openedFiles[i].filename, formattedFilename) == 0)
+        {
+            printf("Error: file '%s' already opened\n", formattedFilename);
             return false;
         }
     }
 
     // Check if the file exists in the current directory
     uint32_t firstCluster;
-    if (!find_file_in_cluster(fileDescriptor, fsState, filename, &firstCluster)) {
-        printf("Error: File '%s' does not exist in %s.\n", filename, fsState->currentWorkingDir);
+    if (!find_file_in_cluster(fileDescriptor, fsState, formattedFilename, &firstCluster))
+    {
+        printf("Error: File '%s' does not exist in %s.\n", formattedFilename, fsState->currentWorkingDir);
         return false;
     }
 
-    printf("Debug: File '%s' found with first cluster %u\n", filename, firstCluster);
+    // printf("Debug: File '%s' found with first cluster %u\n", formattedFilename, firstCluster);
 
     // Process opening the file with appropriate flags
     int flags = determine_open_flags(mode);
-    if (flags == -1) {
+    if (flags == -1)
+    {
         printf("Error: Invalid mode '%s'\n", mode);
         return false;
     }
 
     // Add to the openedFiles array
-    add_to_opened_files(fsState, filename, firstCluster, flags, mode);
-    printf("Debug: File '%s' added to openedFiles\n", filename);
+    add_to_opened_files(fsState, formattedFilename, firstCluster, flags, mode);
+    // printf("Debug: File '%s' added to openedFiles\n", formattedFilename);
+    printf("Opened File\n");
     return true;
 }
 
-int determine_open_flags(const char *mode) {
-    if (strcmp(mode, "-r") == 0) return O_RDONLY;
-    else if (strcmp(mode, "-w") == 0) return O_WRONLY;
-    else if (strcmp(mode, "-rw") == 0 || strcmp(mode, "-wr") == 0) return O_RDWR;
+int determine_open_flags(const char *mode)
+{
+    if (strcmp(mode, "-r") == 0)
+        return O_RDONLY;
+    else if (strcmp(mode, "-w") == 0)
+        return O_WRONLY;
+    else if (strcmp(mode, "-rw") == 0 || strcmp(mode, "-wr") == 0)
+        return O_RDWR;
     return -1; // Invalid mode
 }
 
-void add_to_opened_files(FileSystemState *fsState, const char *filename, uint32_t firstCluster, int fd, const char *mode) {
+void add_to_opened_files(FileSystemState *fsState, const char *filename, uint32_t firstCluster, int fd, const char *mode)
+{
     // Assuming fsState->openedFilesCount is the count of opened files
-    if (fsState->openedFilesCount < 100) { // Assuming 100 is the max number of opened files
+    if (fsState->openedFilesCount < 100)
+    { // Assuming 100 is the max number of opened files
         strncpy(fsState->openedFiles[fsState->openedFilesCount].filename, filename, sizeof(fsState->openedFiles[fsState->openedFilesCount].filename) - 1);
         fsState->openedFiles[fsState->openedFilesCount].file_descriptor = fd;
         strncpy(fsState->openedFiles[fsState->openedFilesCount].mode, mode, sizeof(fsState->openedFiles[fsState->openedFilesCount].mode) - 1);
@@ -686,13 +738,12 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
         else if (strcmp(command, "ls") == 0)
         {
             print_directory_entries(file, fsState);
-            
         }
         else if (strcmp(command, "open") == 0)
         {
             char filename[256], mode[3];
             scanf("%s %s", filename, mode);
-            if (!open_file(file, fsState, filename, mode)) 
+            if (!open_file(file, fsState, filename, mode))
             {
                 printf("Failed to open file '%s'\n", filename);
             }
