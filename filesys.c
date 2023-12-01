@@ -302,11 +302,11 @@ void split_name_ext(const char *entryName, char *name, char *ext)
 }
 
 uint32_t get_next_cluster(int file, FileSystemState *fsState) {
-    printf("Debug: Entering get_next_cluster with currentCluster = %u\n", fsState->currentCluster);
+    // printf("Debug: Entering get_next_cluster with currentCluster = %u\n", fsState->currentCluster);
 
     // Validate cluster range
     if (fsState->currentCluster < 2 || fsState->currentCluster >= 0x0FFFFFF8) {
-        printf("Error: Invalid current cluster number %u\n", fsState->currentCluster);
+        // printf("Error: Invalid current cluster number %u\n", fsState->currentCluster);
         return 0;
     }
 
@@ -318,7 +318,7 @@ uint32_t get_next_cluster(int file, FileSystemState *fsState) {
     // Seek to FAT entry
     off_t seekResult = lseek(file, (FATSecNum * fsState->bootInfo.BPB_BytsPerSec) + FATEntOffset, SEEK_SET);
     if (seekResult == (off_t)-1) {
-        perror("Error seeking FAT entry");
+        // perror("Error seeking FAT entry");
         return 0;
     }
 
@@ -326,17 +326,17 @@ uint32_t get_next_cluster(int file, FileSystemState *fsState) {
     uint32_t FATEntry;
     ssize_t bytesRead = read(file, &FATEntry, sizeof(FATEntry));
     if (bytesRead != sizeof(FATEntry)) {
-        perror("Error reading FAT entry");
+        // perror("Error reading FAT entry");
         return 0;
     }
 
-    printf("Debug: FATEntry (raw) read is %u (Hex: %08X)\n", FATEntry, FATEntry);
+    // printf("Debug: FATEntry (raw) read is %u (Hex: %08X)\n", FATEntry, FATEntry);
 
     // Extract next cluster value
     uint32_t nextCluster = FATEntry & 0x0FFFFFFF;
-    printf("Debug: nextCluster calculated as %u\n", nextCluster);
+    // printf("Debug: nextCluster calculated as %u\n", nextCluster);
     if (nextCluster >= 0x0FFFFFF8) {
-        printf("Reached the end of the file or directory cluster chain.\n");
+        // printf("Reached the end of the file or directory cluster chain.\n");
     }
     return nextCluster;
 }
@@ -367,8 +367,16 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
                 }
             }
         }
+
+        if (strcmp(fsState->currentWorkingDir, "/"))
+        {
+            strcpy(fsState->currentWorkingDir, "/");
+            fsState->currentCluster = fsState->bootInfo.BPB_RootClus;
+            return;
+        }
         return;
     }
+
 
     push_cluster(&fsState->directoryStack, fsState->currentCluster);
 
@@ -377,7 +385,7 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
 
     if (find_directory_in_cluster(fileDescriptor, fsState, formattedDirName, &nextCluster))
     {
-        printf("change_directory This is nextCLuster%u\n", nextCluster );
+        // printf("change_directory This is nextCLuster%u\n", nextCluster );
         if (fsState->currentWorkingDir[strlen(fsState->currentWorkingDir) - 1] != '/')
         {
             strcat(fsState->currentWorkingDir, "/");
@@ -385,11 +393,11 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
         strcat(fsState->currentWorkingDir, dirname);
 
         fsState->currentCluster = nextCluster;
-        printf("change_directory Changed directory to '%s', new cluster: %u\n", fsState->currentWorkingDir, fsState->currentCluster);
+        // printf("change_directory Changed directory to '%s', new cluster: %u\n", fsState->currentWorkingDir, fsState->currentCluster);
     }
     else
     {
-        printf("Directory '%s' not found\n", dirname);
+        printf("error: '%s' does not exist\n", dirname);
     }
 }
 
@@ -431,7 +439,7 @@ bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, con
 
         for (int i = 0; i < fsState->bootInfo.BPB_SecPerClus; ++i)
         {
-            printf("find_directory_in_cluster Inspecting cluster: %u\n", fsState->currentCluster);
+            // printf("find_directory_in_cluster Inspecting cluster: %u\n", fsState->currentCluster);
 
             off_t offset = (sector + i) * fsState->bootInfo.BPB_BytsPerSec;
             lseek(fileDescriptor, offset, SEEK_SET);
@@ -460,7 +468,7 @@ bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, con
                 if ((entry.DIR_Attr & 0x10) && case_insensitive_compare(formattedEntryName, formattedDirName) == 0)
                 {
                     *nextCluster = (entry.DIR_FstClusHI << 16) | entry.DIR_FstClusLO;
-                    printf("find directory in clster: nextCluster %u", *nextCluster);
+                    // printf("find directory in clster: nextCluster %u", *nextCluster);
                     return true; 
                 }
             }
@@ -479,7 +487,7 @@ bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, con
         }
     }
 
-    printf("find_directory_in_cluster Directory '%s' not found in cluster: %u\n", dirName, fsState->currentCluster);
+    // printf("find_directory_in_cluster Directory '%s' not found in cluster: %u\n", dirName, fsState->currentCluster);
     return false;
 }
 
