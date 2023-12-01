@@ -2,7 +2,7 @@
 # Define the compiler
 CC = gcc
 
-CFLAGS = -Wall -Wextra -g -std=c99 -D_POSIX_C_SOURCE=200809L
+CFLAGS = -Wall -Wextra -g -std=c99
 TARGET = filesys
 SRC = filesys.c
 OBJ = $(SRC:.c=.o)
