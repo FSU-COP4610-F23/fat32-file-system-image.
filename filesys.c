@@ -44,6 +44,7 @@ typedef struct
 {
     char filename[256];
     int file_descriptor;
+    uint32_t firstCluster;
     char mode[3];
     off_t offset;
 } OpenedFile;
@@ -82,13 +83,16 @@ void display_boot_sector_info(const FileSystemState *fsState);
 void print_directory_entries(int file, FileSystemState *fsState);
 void list_directory(int file, FileSystemState *fsState);
 bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *dirName, uint32_t *nextCluster);
+bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *fileName, uint32_t *firstCluster); 
 uint32_t get_next_cluster(int file, FileSystemState *fsState);
 void change_directory(FileSystemState *fsState, const char *dirname, int fileDescriptor);
 void run_shell(const char *imageName, FileSystemState *fsState, int file);
 void split_name_ext(const char *entryName, char *name, char *ext);
 void format_dir_name(const char *input, char *formatted);
 void push_cluster(ClusterStack *stack, uint32_t cluster); 
+void add_to_opened_files(FileSystemState *fsState, const char *filename, uint32_t firstCluster, int fd, const char *mode);
 uint32_t pop_cluster(ClusterStack *stack);
+int determine_open_flags(const char *mode);
 
 
 int main(int argc, char *argv[])
@@ -258,13 +262,16 @@ void print_directory_entries(int file, FileSystemState *fsState)
                     continue; // Skip non-printable names and names starting with xN
                 }
 
-                if (ext[0] != '\0')
-                {
-                    printf("%s.%s ", name, ext); // Print name.extension
-                }
-                else
-                {
-                    printf("%s ", name); // Print name only
+                if (entry.DIR_Attr & 0x10) {
+                    // Directory: Blue color
+                    printf("\033[1;34m%s\033[0m ", name); // Append '/' to indicate directory
+                } else {
+                    // Regular File: Default color
+                    if (ext[0] != '\0') {
+                        printf("%s.%s ", name, ext); // Print file name with extension
+                    } else {
+                        printf("%s ", name); // Print file name only
+                    }
                 }
             }
         }
@@ -515,8 +522,144 @@ void format_dir_name(const char *input, char *formatted)
         formatted[j] = toupper((unsigned char)input[i]);
     }
 
-    // printf("format_dir_name Formatted directory name: '%s'\n", formatted); // Debug print
+    printf("format_dir_name Formatted directory name: '%s'\n", formatted); // Debug print
 }
+
+bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *fileName, uint32_t *firstCluster) {
+    char formattedFileName[12];
+    format_dir_name(fileName, formattedFileName); // Formats fileName into the FAT32 8.3 filename format
+
+    // uint32_t currentCluster = fsState->currentCluster;
+
+    while (fsState->currentCluster < 0x0FFFFFF8) {
+                    
+
+        for (int sectorOffset = 0; sectorOffset < fsState->bootInfo.BPB_SecPerClus; ++sectorOffset) {
+            uint32_t sector = ((fsState->currentCluster - 2) * fsState->bootInfo.BPB_SecPerClus) + fsState->bootInfo.BPB_RsvdSecCnt +
+                              (fsState->bootInfo.BPB_NumFATs * fsState->bootInfo.BPB_FATSz32) + sectorOffset;
+            off_t offset = sector * fsState->bootInfo.BPB_BytsPerSec;
+
+            for (int entryOffset = 0; entryOffset < fsState->bootInfo.BPB_BytsPerSec; entryOffset += sizeof(DirectoryEntry)) {
+                lseek(fileDescriptor, offset + entryOffset, SEEK_SET);
+                DirectoryEntry entry;
+                if (read(fileDescriptor, &entry, sizeof(DirectoryEntry)) != sizeof(DirectoryEntry)) 
+                {
+
+                    continue; // Unable to read entry, skip to next
+                }
+
+                if ((unsigned char)entry.DIR_Name[0] == 0x00) 
+                {
+                    printf("We read the file\n"); 
+                    return false; // End of directory entries
+                }
+
+                if ((unsigned char)entry.DIR_Name[0] == 0xE5 || entry.DIR_Attr == 0x0F) {
+                    continue; // Deleted or LFN entry, skip
+                }
+
+                if (!(entry.DIR_Attr & 0x10) && case_insensitive_compare(entry.DIR_Name, formattedFileName) == 0) {
+                    // Found the file
+                    *firstCluster = ((uint32_t)entry.DIR_FstClusHI << 16) | entry.DIR_FstClusLO;
+                    printf("This is find_file_in_cluster first cluster %u\n", *firstCluster);
+                    return true;
+                }
+            }
+
+        }
+        fsState->currentCluster = get_next_cluster(fileDescriptor, fsState);
+    }
+
+    return false; // File not found
+}
+
+bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filename, const char *mode) {
+    printf("Debug: Attempting to open file '%s' with mode '%s'\n", filename, mode);
+
+    // Check if file is already opened
+    for (int i = 0; i < fsState->openedFilesCount; i++) {
+        if (strcmp(fsState->openedFiles[i].filename, filename) == 0) {
+            printf("Error: file '%s' already opened\n", filename);
+            return false;
+        }
+    }
+
+    // Check if the file exists in the current directory
+    uint32_t firstCluster;
+    if (!find_file_in_cluster(fileDescriptor, fsState, filename, &firstCluster)) {
+        printf("Error: File '%s' does not exist in %s.\n", filename, fsState->currentWorkingDir);
+        return false;
+    }
+
+    printf("Debug: File '%s' found with first cluster %u\n", filename, firstCluster);
+
+    // Process opening the file with appropriate flags
+    int flags = determine_open_flags(mode);
+    if (flags == -1) {
+        printf("Error: Invalid mode '%s'\n", mode);
+        return false;
+    }
+
+    // Add to the openedFiles array
+    add_to_opened_files(fsState, filename, firstCluster, flags, mode);
+    printf("Debug: File '%s' added to openedFiles\n", filename);
+    return true;
+}
+
+int determine_open_flags(const char *mode) {
+    if (strcmp(mode, "-r") == 0) return O_RDONLY;
+    else if (strcmp(mode, "-w") == 0) return O_WRONLY;
+    else if (strcmp(mode, "-rw") == 0 || strcmp(mode, "-wr") == 0) return O_RDWR;
+    return -1; // Invalid mode
+}
+
+void add_to_opened_files(FileSystemState *fsState, const char *filename, uint32_t firstCluster, int fd, const char *mode) {
+    // Assuming fsState->openedFilesCount is the count of opened files
+    if (fsState->openedFilesCount < 100) { // Assuming 100 is the max number of opened files
+        strncpy(fsState->openedFiles[fsState->openedFilesCount].filename, filename, sizeof(fsState->openedFiles[fsState->openedFilesCount].filename) - 1);
+        fsState->openedFiles[fsState->openedFilesCount].file_descriptor = fd;
+        strncpy(fsState->openedFiles[fsState->openedFilesCount].mode, mode, sizeof(fsState->openedFiles[fsState->openedFilesCount].mode) - 1);
+        fsState->openedFiles[fsState->openedFilesCount].offset = 0;
+        fsState->openedFiles[fsState->openedFilesCount].firstCluster = firstCluster;
+        fsState->openedFilesCount++;
+    }
+}
+
+/*
+bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filename, const char *mode) {
+    // Check if file is already opened
+    for (int i = 0; i < fsState->openedFilesCount; i++) {
+        if (strcmp(fsState->openedFiles[i].filename, filename) == 0) {
+            printf("Error: file '%s' already opened\n", filename);
+            return false;
+        }
+    }
+
+    // Check if the file exists in the current directory
+    uint32_t firstCluster;
+    if (!find_file_in_cluster(fileDescriptor, fsState, filename, &firstCluster)) {
+        printf("Error: File '%s' does not exist in the current directory.\n", filename);
+        return false;
+    }
+
+    // Process opening the file with appropriate flags
+    int flags = determine_open_flags(mode);
+    if (flags == -1) {
+        printf("Error: Invalid mode '%s'\n", mode);
+        return false;
+    }
+
+    int fd = open(filename, flags);
+    if (fd == -1) {
+        perror("Error opening file");
+        return false;
+    }
+
+    // Add to the openedFiles array
+    add_to_opened_files(fsState, filename, fd, firstCluster, mode);
+    return true;
+}
+*/
 
 void run_shell(const char *imageName, FileSystemState *fsState, int file)
 {
@@ -547,49 +690,11 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
         }
         else if (strcmp(command, "open") == 0)
         {
-            char filename[256];
-            char mode[3];
+            char filename[256], mode[3];
             scanf("%s %s", filename, mode);
-
-            int already_opened = 0;
-            for (int i = 0; i < fsState->openedFilesCount; i++)
+            if (!open_file(file, fsState, filename, mode)) 
             {
-                if (strcmp(fsState->openedFiles[i].filename, filename) == 0)
-                {
-                    printf("Error: file already opened\n");
-                    already_opened = 1;
-                    break;
-                }
-            }
-
-            if (!already_opened)
-            {
-                int flags = 0;
-                if (strcmp(mode, "-r") == 0)
-                    flags = O_RDONLY;
-                else if (strcmp(mode, "-w") == 0)
-                    flags = O_WRONLY;
-                else if (strcmp(mode, "-rw") == 0 || strcmp(mode, "-wr") == 0)
-                    flags = O_RDWR;
-                else
-                {
-                    printf("Error: Invalid mode\n");
-                    continue;
-                }
-
-                int fd = open(filename, flags);
-                if (fd == -1)
-                {
-                    perror("Error opening file");
-                    continue;
-                }
-
-                // Add to the openedFiles array
-                strncpy(fsState->openedFiles[fsState->openedFilesCount].filename, filename, sizeof(fsState->openedFiles[fsState->openedFilesCount].filename));
-                fsState->openedFiles[fsState->openedFilesCount].file_descriptor = fd;
-                strncpy(fsState->openedFiles[fsState->openedFilesCount].mode, mode, sizeof(fsState->openedFiles[fsState->openedFilesCount].mode));
-                fsState->openedFiles[fsState->openedFilesCount].offset = 0;
-                fsState->openedFilesCount++;
+                printf("Failed to open file '%s'\n", filename);
             }
         }
         else if (strcmp(command, "close") == 0)
