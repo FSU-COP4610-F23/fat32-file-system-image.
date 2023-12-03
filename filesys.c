@@ -137,7 +137,8 @@ void parse_boot_sector(int file, boot_sector_info *info) {
         close(file);
         return;
     }//printf("BPB_FATSz32: %u\n", info->BPB_FATSz32);
-
+    info->BPB_FATSz32 = info->BPB_FATSz32 * info->BPB_BytsPerSec / 4; //4 bytes in 1 entry
+    
     info->dataRegionAddress = info->BPB_BytsPerSec * info->BPB_RsvdSecCnt + //in decimal expression
                               info->BPB_FATSz32 * info->BPB_NumFATs * info->BPB_BytsPerSec;
 
@@ -152,7 +153,6 @@ void parse_boot_sector(int file, boot_sector_info *info) {
     info->total_clusters = info->dataSec / info->BPB_SecPerClus;
     //size of image disk
     info->image_size = lseek(file, 0, SEEK_END);
-
 }
 
 void display_boot_sector_info(const boot_sector_info *info) {
