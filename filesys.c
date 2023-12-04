@@ -199,7 +199,8 @@ void parse_boot_sector(int file, FileSystemState *fsState)
     fsState->currentCluster = fsState->bootInfo.BPB_RootClus;
 
     // Calculate the data region's first sector
-    fsState->bootInfo.dataRegionAddress = fsState->bootInfo.BPB_RsvdSecCnt + (fsState->bootInfo.BPB_NumFATs * fsState->bootInfo.BPB_FATSz32);
+    fsState->bootInfo.dataRegionAddress = fsState->bootInfo.BPB_RsvdSecCnt * fsState->bootInfo.BPB_BytsPerSec + 
+    (fsState->bootInfo.BPB_NumFATs * fsState->bootInfo.BPB_FATSz32 * fsState->bootInfo.BPB_BytsPerSec);
 
     // Set root cluster postition to data region address
     fsState->bootInfo.rootClusPosition = fsState->bootInfo.dataRegionAddress;
@@ -833,6 +834,7 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
 
         if (strcmp(command, "exit") == 0)
         {
+            //add a clean function later
             break;
         }
         else if (strcmp(command, "info") == 0)
