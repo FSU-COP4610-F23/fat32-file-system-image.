@@ -206,7 +206,8 @@ void parse_boot_sector(int file, FileSystemState *fsState)
     fsState->bootInfo.rootClusPosition = fsState->bootInfo.dataRegionAddress;
 
     // Calculate total data sectors
-    fsState->bootInfo.dataSec = fsState->bootInfo.BPB_TotSec32 - fsState->bootInfo.dataRegionAddress;
+    fsState->bootInfo.dataSec = fsState->bootInfo.BPB_TotSec32 - (fsState->bootInfo.BPB_RsvdSecCnt + 
+    (fsState->bootInfo.BPB_NumFATs * fsState->bootInfo.BPB_FATSz32) + fsState->bootInfo.rootDirSectors);
 
     // Calculate total clusters in data region
     fsState->bootInfo.total_clusters = fsState->bootInfo.dataSec / fsState->bootInfo.BPB_SecPerClus;
