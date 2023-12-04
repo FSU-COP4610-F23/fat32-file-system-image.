@@ -31,7 +31,8 @@ typedef struct __attribute__((packed)) BPB
     uint16_t BPB_RootEntCnt;
     unsigned int total_clusters; // print
     uint8_t BPB_NumFATs;
-    uint32_t BPB_FATSz32; // print
+    uint32_t BPB_FATSz32;
+    uint32_t EntriesPerFAT; // print
 } boot_sector_info;
 
 typedef struct
@@ -200,11 +201,20 @@ void parse_boot_sector(int file, FileSystemState *fsState)
     // Calculate the data region's first sector
     fsState->bootInfo.dataRegionAddress = fsState->bootInfo.BPB_RsvdSecCnt + (fsState->bootInfo.BPB_NumFATs * fsState->bootInfo.BPB_FATSz32);
 
+    // Set root cluster postition to data region address
+    fsState->bootInfo.rootClusPosition = fsState->bootInfo.dataRegionAddress;
+
     // Calculate total data sectors
     fsState->bootInfo.dataSec = fsState->bootInfo.BPB_TotSec32 - fsState->bootInfo.dataRegionAddress;
 
     // Calculate total clusters in data region
     fsState->bootInfo.total_clusters = fsState->bootInfo.dataSec / fsState->bootInfo.BPB_SecPerClus;
+
+    // Find size of fat32.img
+    fsState->bootInfo.image_size = lseek(file, 0, SEEK_END);
+
+    // Calculate the number of entries in one FAT
+    fsState->bootInfo.EntriesPerFAT = fsState->bootInfo.BPB_FATSz32 * fsState->bootInfo.BPB_BytsPerSec / 4;
 }
 
 void display_boot_sector_info(const FileSystemState *fsState)
@@ -213,7 +223,7 @@ void display_boot_sector_info(const FileSystemState *fsState)
     printf("Bytes Per Sector: %u\n", fsState->bootInfo.BPB_BytsPerSec);
     printf("Sectors Per Cluster: %u\n", fsState->bootInfo.BPB_SecPerClus);
     printf("Total Clusters in Data Region: %u\n", fsState->bootInfo.total_clusters);
-    printf("Entries Per FAT: %u\n", fsState->bootInfo.BPB_FATSz32);
+    printf("Entries Per FAT: %u\n", fsState->bootInfo.EntriesPerFAT);
     printf("Image Size: %lld bytes\n", (long long)fsState->bootInfo.image_size);
 }
 
