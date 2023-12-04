@@ -753,12 +753,17 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
             }
 
             // Update the offset
-            fsState->openedFiles[i].offset += read_bytes;
 
             // Print the read data
             buffer[read_bytes] = '\0'; // Null-terminate the buffer
             printf("%s\n", buffer);
 
+            if (read_bytes < (ssize_t)size)
+            {
+                printf("Note: Read less than requested size. Possible end of file.\n");
+            }
+
+            fsState->openedFiles[i].offset += read_bytes;
             free(buffer);
             return true;
         }
