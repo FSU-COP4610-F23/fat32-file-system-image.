@@ -601,7 +601,6 @@ bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const ch
     return false; // File not found
 }
 
-
 bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filename, const char *mode)
 {
     char formattedFilename[12];
@@ -610,20 +609,14 @@ bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filenam
     const char *basePath = "fat32.img"; // Set this to the directory where fat32.img is located
     char fullPath[256];
 
-    // // snprintf(fullPath, sizeof(fullPath), "%s/%s", fsState->currentWorkingDir, formattedFilename);
-    // if (strcmp(fsState->currentWorkingDir, "/" )== 0)
-    // {
-    //     snprintf(fullPath, sizeof(fullPath), "fat32.img");
-    // }
-    // else
-    //     snprintf(fullPath, sizeof(fullPath), "fat32.img%s", fsState->currentWorkingDir);
-
-    if (strcmp(fsState->currentWorkingDir, "/") == 0) {
-        snprintf(fullPath, sizeof(fullPath), "%s/%s", basePath, formattedFilename);
-    } else {
+    if (strcmp(fsState->currentWorkingDir, "/") == 0)
+    {
+        snprintf(fullPath, sizeof(fullPath), "%s", basePath);
+    }
+    else
+    {
         snprintf(fullPath, sizeof(fullPath), "%s%s/%s", basePath, fsState->currentWorkingDir, formattedFilename);
     }
-    // printf("Debug: Attempting to open file '%s' (formatted as '%s') with mode '%s'\n", filename, formattedFilename, mode);
 
     // Check if file is already opened
     for (int i = 0; i < fsState->openedFilesCount; i++)
@@ -645,11 +638,10 @@ bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filenam
         return false;
     }
 
-
     // Process opening the file with appropriate flags
     int flags = determine_open_flags(mode);
     int fd = open(fullPath, flags);
-    if (flags == -1)
+    if (fd == -1)
     {
         printf("Error: Invalid mode '%s'\n", mode);
         return false;
@@ -657,13 +649,10 @@ bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filenam
 
     add_to_opened_files(fsState, formattedFilename, fullPath, firstCluster, fd, mode);
 
-    // printf("Opened File\n");
-    printf("Opened file '%s' with FD: %d\n", formattedFilename, fd);
+    printf("Opened File\n");
+    // printf("Opened file '%s' with FD: %d\n", formattedFilename, fd);
     return true;
 }
-
-
-
 
 bool close_file(FileSystemState *fsState, const char *filename)
 {
@@ -702,19 +691,23 @@ bool close_file(FileSystemState *fsState, const char *filename)
     return true;
 }
 
-bool custom_lseek(const char *filename, off_t offset, FileSystemState *fsState) {
+bool custom_lseek(const char *filename, off_t offset, FileSystemState *fsState)
+{
     // Check for a non-negative offset
-    if (offset < 0) {
+    if (offset < 0)
+    {
         printf("Error: Offset cannot be negative.\n");
         return false;
     }
 
-    char formattedFilename[12]; // 11 characters + 1 for null terminator
+    char formattedFilename[12];                   // 11 characters + 1 for null terminator
     format_dir_name(filename, formattedFilename); // Format the input filename
 
     // Find the opened file in FileSystemState
-    for (int i = 0; i < fsState->openedFilesCount; i++) {
-        if (strcmp(fsState->openedFiles[i].filename, formattedFilename) == 0) {
+    for (int i = 0; i < fsState->openedFilesCount; i++)
+    {
+        if (strcmp(fsState->openedFiles[i].filename, formattedFilename) == 0)
+        {
             // Set the offset
             fsState->openedFiles[i].offset = offset;
             return true;
@@ -725,28 +718,34 @@ bool custom_lseek(const char *filename, off_t offset, FileSystemState *fsState) 
     return false;
 }
 
-bool custom_read(const char *filename, size_t size, FileSystemState *fsState) {
-    char formattedFilename[12]; // Buffer for formatted filename
+bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
+{
+    char formattedFilename[12];                   // Buffer for formatted filename
     format_dir_name(filename, formattedFilename); // Format the input filename
 
-    for (int i = 0; i < fsState->openedFilesCount; i++) {
-        if (strcmp(fsState->openedFiles[i].filename, formattedFilename) == 0) {
+    for (int i = 0; i < fsState->openedFilesCount; i++)
+    {
+        if (strcmp(fsState->openedFiles[i].filename, formattedFilename) == 0)
+        {
             // Check if file is opened in read mode
-            if (strstr(fsState->openedFiles[i].mode, "r") == NULL) {
+            if (strstr(fsState->openedFiles[i].mode, "r") == NULL)
+            {
                 printf("Error: File '%s' is not opened in read mode.\n", formattedFilename);
                 return false;
             }
 
             // Allocate buffer for reading
             char *buffer = malloc(size + 1); // +1 for null terminator
-            if (buffer == NULL) {
+            if (buffer == NULL)
+            {
                 printf("Error: Memory allocation failed.\n");
                 return false;
             }
 
             // Read data from file
             ssize_t read_bytes = pread(fsState->openedFiles[i].file_descriptor, buffer, size, fsState->openedFiles[i].offset);
-            if (read_bytes < 0) {
+            if (read_bytes < 0)
+            {
                 perror("Error reading file");
                 printf("Filename: %s, FD: %d, Offset: %lld, Size: %zu\n", formattedFilename, fsState->openedFiles[i].file_descriptor, (long long)fsState->openedFiles[i].offset, size);
                 free(buffer);
@@ -862,24 +861,37 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
             }
             else
             {
-                printf("INDEX       FILENaME         MODE        OFFSET     PATH\n");
-
+                printf("INDEX   FILENAME        MODE    OFFSET    PATH\n");
                 for (int i = 0; i < fsState->openedFilesCount; i++)
                 {
-                    printf("%d           %s      %s          %ld          %s\n",
-                           i, fsState->openedFiles[i].filename, fsState->openedFiles[i].mode, fsState->openedFiles[i].offset, fsState->openedFiles[i].path);
-                }
+                    char displayMode[3];
 
+                    // Copy mode without the '-' character
+                    if (fsState->openedFiles[i].mode[0] == '-')
+                    {
+                        strncpy(displayMode, fsState->openedFiles[i].mode + 1, sizeof(displayMode) - 1);
+                    }
+                    else
+                    {
+                        strncpy(displayMode, fsState->openedFiles[i].mode, sizeof(displayMode));
+                    }
+
+                    displayMode[sizeof(displayMode) - 1] = '\0'; // Ensure null termination
+
+                    printf("%-7d %-15s %-7s %-9ld %s\n",
+                           i, fsState->openedFiles[i].filename, displayMode, fsState->openedFiles[i].offset, fsState->openedFiles[i].path);
+                }
             }
         }
-        else if (strcmp(command, "lseek") == 0)  // Corrected the command name
+        else if (strcmp(command, "lseek") == 0) // Corrected the command name
         {
             char filename[256];
             off_t offset;
             scanf("%s %ld", filename, &offset);
 
             // Call the lseek function
-            if (!custom_lseek(filename, offset, fsState)) {
+            if (!custom_lseek(filename, offset, fsState))
+            {
                 printf("Error: Unable to set offset for file '%s'\n", filename);
             }
         }
@@ -889,7 +901,7 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
             size_t size;
             scanf("%s %zu", filename, &size);
 
-            if (!custom_read(filename, size, fsState)) 
+            if (!custom_read(filename, size, fsState))
             {
                 printf("Error: Unable to read file '%s'\n", filename);
             }
@@ -898,5 +910,5 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
         {
             printf("Unknown command: %s\n", command);
         }
-        }
     }
+}
