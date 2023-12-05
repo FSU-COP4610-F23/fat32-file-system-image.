@@ -628,7 +628,7 @@ bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filenam
 
     if (strcmp(fsState->currentWorkingDir, "/") == 0)
     {
-        snprintf(fullPath, sizeof(fullPath), "%s", basePath);
+        snprintf(fullPath, sizeof(fullPath), "%s/%s", basePath, formattedFilename);
     }
     else
     {
