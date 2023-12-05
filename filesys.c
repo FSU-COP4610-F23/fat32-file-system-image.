@@ -371,7 +371,7 @@ uint32_t get_next_cluster(int file, FileSystemState *fsState)
     // printf("Debug: nextCluster calculated as %u\n", nextCluster);
     if (nextCluster >= 0x0FFFFFF8)
     {
-        // printf("Reached the end of the file or directory cluster chain.\n");
+         printf("Reached the end of the file or directory cluster chain.\n");
     }
     return nextCluster;
 }
@@ -409,7 +409,7 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
             }
         }
 
-        if (strcmp(fsState->currentWorkingDir, "/"))
+        if (strcmp(fsState->currentWorkingDir, "/") == 0)
         {
             strcpy(fsState->currentWorkingDir, "/");
             fsState->currentCluster = fsState->bootInfo.BPB_RootClus;
@@ -751,6 +751,11 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
                 return false;
             }
 
+            unsigned int fileSize = findFileSizeBytes(fsState->openedFiles[i].firstCluster, fsState);
+
+            if (size > filesize)
+                size = fileSize;
+
             // Allocate buffer for reading
             char *buffer = malloc(size + 1); // +1 for null terminator
             if (buffer == NULL)
@@ -759,12 +764,14 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
                 return false;
             }
 
+            off_t readOffset = (fsState->openedFiles[i].firstCluster - 2) * fsState->bootInfo.BPB_BytsPerSec;
+
             // Read data from file
-            ssize_t read_bytes = pread(fsState->openedFiles[i].file_descriptor, buffer, size, fsState->openedFiles[i].offset);
+            ssize_t read_bytes = pread(fsState->openedFiles[i].file_descriptor, buffer, size, readOffset);
             if (read_bytes < 0)
             {
                 perror("Error reading file");
-                printf("Filename: %s, FD: %d, Offset: %lld, Size: %zu\n", formattedFilename, fsState->openedFiles[i].file_descriptor, (long long)fsState->openedFiles[i].offset, size);
+                printf("Filename: %s, FD: %d, Offset: %lld, Size: %zu\n", formattedFilename, fsState->openedFiles[i].file_descriptor, (long long)readOffset, size);
                 free(buffer);
                 return false;
             }
@@ -947,6 +954,19 @@ bool custom_append(const char *filename, char *str, FileSystemState *fsState)
     return false;
 }
 
+unsigned int findFileSizeBytes(uint32_t firstCluster, FileSystemState *fsState)
+{
+    // Assuming the currentCluster is the cluster to check
+    unsigned int currentCluster = firstCluster;
+    unsigned int clusterCount = 0;
+    // Check if the current cluster is the last cluster in the chain
+    while (currentCluster < 0x0FFFFFF8);
+    {
+        get_next_cluster(currentCluster);
+        clusterCount++;
+    }
+    return clusterCount * fsState->bootInfo.BPB_BytsPerSec;
+}
 
 
 void run_shell(const char *imageName, FileSystemState *fsState, int file)
