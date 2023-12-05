@@ -862,7 +862,7 @@ bool custom_append(const char *filename, char *str, FileSystemState *fsState)
             }
 
             memmove(str, str + 1, strlen(str) - 1);
-            str[strlen(str) - 1] = '\0';
+            str[strlen(str) - 2] = '\0';
             str = realloc(str, strlen(str) + 1);
             if (str == NULL)       
             {
@@ -878,7 +878,7 @@ bool custom_append(const char *filename, char *str, FileSystemState *fsState)
                 return false;
             }
 
-            printf("%lld %zu %s %lld\n",(long long)fsState->openedFiles[i].offset, strlen(str) + 1, str, (long long)file_info.st_size);
+            printf("%lld %s %zu %s %lld\n",(long long)fsState->openedFiles[i].offset, fsState->openedFiles[i].path, strlen(str) + 1, str, (long long)file_info.st_size);
 
             // Expand size of file
             if (fsState->openedFiles[i].offset + strlen(str) + 1 > file_info.st_size)
