@@ -628,11 +628,11 @@ bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filenam
 
     if (strcmp(fsState->currentWorkingDir, "/") == 0)
     {
-        snprintf(fullPath, sizeof(fullPath), "%s/%s", basePath, formattedFilename);
+        snprintf(fullPath, sizeof(fullPath), "%s", basePath);
     }
     else
     {
-        snprintf(fullPath, sizeof(fullPath), "%s%s/%s", basePath, fsState->currentWorkingDir, formattedFilename);
+        snprintf(fullPath, sizeof(fullPath), "%s%s", basePath, fsState->currentWorkingDir);
     }
 
     // Check if file is already opened
@@ -798,9 +798,6 @@ int determine_open_flags(const char *mode)
         return O_WRONLY;
     else if (strcmp(mode, "-rw") == 0 || strcmp(mode, "-wr") == 0)
         return O_RDWR;
-
-    if (strcmp(mode, "-rw") != 0)
-    printf("strcmp is stupid\n");
     return -1; // Invalid mode
 }
 
