@@ -798,6 +798,9 @@ int determine_open_flags(const char *mode)
         return O_WRONLY;
     else if (strcmp(mode, "-rw") == 0 || strcmp(mode, "-wr") == 0)
         return O_RDWR;
+
+    if (strcmp(mode, "-rw") != 0)
+    printf("strcmp is stupid\n");
     return -1; // Invalid mode
 }
 
