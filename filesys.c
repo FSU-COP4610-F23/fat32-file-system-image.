@@ -94,6 +94,10 @@ bool custom_lseek(const char *filename, off_t offset, FileSystemState *fsState);
 void add_to_opened_files(FileSystemState *fsState, const char *filename, const char *path, uint32_t firstCluster, int fd, const char *mode);
 uint32_t pop_cluster(ClusterStack *stack);
 int determine_open_flags(const char *mode);
+bool custom_append(const char *filename, const char *, FileSystemState *fsState);
+
+
+
 
 int main(int argc, char *argv[])
 {
@@ -825,6 +829,117 @@ void add_to_opened_files(FileSystemState *fsState, const char *filename, const c
     fsState->openedFilesCount++;
 }
 
+bool custom_append(const char *filename, char *str, FileSystemState *fsState)
+{
+    char formattedFilename[12];                   // Buffer for formatted filename
+    format_dir_name(filename, formattedFilename); // Format the input filename
+
+    for (int i = 0; i < fsState->openedFilesCount; i++)
+    {
+        if (strcmp(fsState->openedFiles[i].filename, formattedFilename) == 0)
+        {
+            // Check if file is opened in read mode
+            if (strstr(fsState->openedFiles[i].mode, "w") == NULL)
+            {
+                printf("Error: File '%s' is not opened in write mode.\n", formattedFilename);
+                free(str);
+                return false;
+            }
+
+            // Check for quotation marks
+            if (strlen(str) < 2 || str[0] != '"' && str[strlen(str) - 1] != '"')
+            {
+                printf("Error: [STRING] does not contain quotations.\n");
+                free(str);
+                return false;
+            }
+            else if (strlen(str) == 2 && str[0] != '"' && str[strlen(str) - 1] != '"')
+            {
+                printf("Error: [STRING] is empty.\n");
+                free(str);
+                return false;
+            }
+
+            memmove(str, str + 1, strlen(str) - 1);
+            str[strlen(str) - 1] = '\0';
+            str = realloc(str, strlen(str) + 1);
+            if (str == NULL)       
+            {
+              printf("Error: Memory reallocation failed.\n");
+              free(str); //if str == NULL how does it free?
+              return false;
+            }
+            off_t file_size = lseek(fsState->openedFiles[i].file_descriptor, 0, SEEK_END);
+
+            // Expand size of file
+            if (fsState->openedFiles[i].offset + strlen(str) + 1 > file_size)
+            {
+                int trunc = ftruncate(fsState->openedFiles[i].file_descriptor, fsState->openedFiles[i].offset + strlen(str) + 1);
+                if (trunc == -1) 
+                {
+                    printf("Error: Truncate Failed.\n");
+                    free(str);
+                    return false;
+                }
+            }
+
+            // Add append flag
+            int flags = fcntl(fsState->openedFiles[i].file_descriptor, F_GETFL);
+            if (flags == -1) 
+            {
+                printf("Error getting file flags");
+                free(str);
+                return false;
+            }
+            flags |= O_APPEND; // Adding O_APPEND flag
+
+            int result = fcntl(fsState->openedFiles[i].file_descriptor, F_SETFL, flags);
+            if (result == -1) 
+            {
+                printf("Error setting file flags");
+                free(str);
+                return false;
+            }
+
+            // Write data to end of file
+            ssize_t bytesWritten = write(fsState->openedFiles[i].file_descriptor, str, strlen(str) + 1);
+            if (bytesWritten == -1)
+            {
+                printf("Error writing to the file");
+                free(str);
+                return false;
+            }
+
+            // Remove append flag
+            flags = fcntl(fsState->openedFiles[i].file_descriptor, F_GETFL);
+            if (flags == -1) 
+            {
+                printf("Error getting file flags");
+                free(str);
+                return false;
+            }
+            flags &= ~O_APPEND; // Adding O_APPEND flag
+
+            result = fcntl(fsState->openedFiles[i].file_descriptor, F_SETFL, flags);
+            if (result == -1) 
+            {
+                printf("Error setting file flags");
+                free(str);
+                return false;
+            }
+
+            // Update the offset
+            fsState->openedFiles[i].offset += strlen(str); //null terminator does not count towards offset
+            free(str);
+            return true;
+        }
+    }
+    printf("Error: File '%s' not opened or does not exist.\n", formattedFilename);
+    return false;
+}
+
+
+
 void run_shell(const char *imageName, FileSystemState *fsState, int file)
 {
     char command[100];
@@ -922,6 +1037,24 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
             if (!custom_read(filename, size, fsState))
             {
                 printf("Error: Unable to read file '%s'\n", filename);
+            }
+        }
+        else if (strcmp(command, "append") == 0)
+        {
+            char filename[256];
+            char *str = malloc(256);
+            if (str == NULL)
+            {
+                printf("Error: Memory allocation failed.\n");
+            }
+            else
+            {
+                scanf("%s %255s", filename, str);
+                if (!custom_append(filename, str, fsState))
+                {
+                   printf("Error: Unable to append to file '%s'\n", filename);
+                   free(str);
+                }
             }
         }
         else
