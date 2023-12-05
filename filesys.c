@@ -871,6 +871,8 @@ bool custom_append(const char *filename, char *str, FileSystemState *fsState)
             }
             off_t file_size = lseek(fsState->openedFiles[i].file_descriptor, 0, SEEK_END);
 
+            printf("%lld %zu %lld\n",(long long)fsState->openedFiles[i].offset, strlen(str) + 1, (long long)file_size);
+
             // Expand size of file
             if (fsState->openedFiles[i].offset + strlen(str) + 1 > file_size)
             {
@@ -909,7 +911,7 @@ bool custom_append(const char *filename, char *str, FileSystemState *fsState)
                 free(str);
                 return false;
             }
-
+            printf()
             // Remove append flag
             flags = fcntl(fsState->openedFiles[i].file_descriptor, F_GETFL);
             if (flags == -1) 
