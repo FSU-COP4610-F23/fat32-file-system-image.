@@ -7,6 +7,7 @@
 #include <inttypes.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdbool.h>
@@ -869,12 +870,18 @@ bool custom_append(const char *filename, char *str, FileSystemState *fsState)
               free(str); //if str == NULL how does it free?
               return false;
             }
-            off_t file_size = lseek(fsState->openedFiles[i].file_descriptor, 0, SEEK_END);
 
-            printf("%lld %zu %lld\n",(long long)fsState->openedFiles[i].offset, strlen(str) + 1, (long long)file_size);
+            struct stat file_info;
+            if (stat(fsState->openedFiles[i].path, &file_info) == -1)
+            {
+                printf("Error: Could not retrieve file size.\n");
+                return false;
+            }
+
+            printf("%lld %zu %s %lld\n",(long long)fsState->openedFiles[i].offset, strlen(str) + 1, str, (long long)file_info.st_size);
 
             // Expand size of file
-            if (fsState->openedFiles[i].offset + strlen(str) + 1 > file_size)
+            if (fsState->openedFiles[i].offset + strlen(str) + 1 > file_info.st_size)
             {
                 int trunc = ftruncate(fsState->openedFiles[i].file_descriptor, fsState->openedFiles[i].offset + strlen(str) + 1);
                 if (trunc == -1) 
