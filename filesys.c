@@ -94,7 +94,7 @@ bool custom_lseek(const char *filename, off_t offset, FileSystemState *fsState);
 void add_to_opened_files(FileSystemState *fsState, const char *filename, const char *path, uint32_t firstCluster, int fd, const char *mode);
 uint32_t pop_cluster(ClusterStack *stack);
 int determine_open_flags(const char *mode);
-bool custom_append(const char *filename, const char *, FileSystemState *fsState);
+bool custom_append(const char *filename, char *str, FileSystemState *fsState);
 
 
 
@@ -847,7 +847,7 @@ bool custom_append(const char *filename, char *str, FileSystemState *fsState)
             }
 
             // Check for quotation marks
-            if (strlen(str) < 2 || str[0] != '"' && str[strlen(str) - 1] != '"')
+            if (strlen(str) < 2 || (str[0] != '"' && str[strlen(str) - 1] != '"'))
             {
                 printf("Error: [STRING] does not contain quotations.\n");
                 free(str);
