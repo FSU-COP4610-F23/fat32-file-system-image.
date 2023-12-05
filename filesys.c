@@ -911,7 +911,7 @@ bool custom_append(const char *filename, char *str, FileSystemState *fsState)
                 free(str);
                 return false;
             }
-            printf()
+            
             // Remove append flag
             flags = fcntl(fsState->openedFiles[i].file_descriptor, F_GETFL);
             if (flags == -1) 
