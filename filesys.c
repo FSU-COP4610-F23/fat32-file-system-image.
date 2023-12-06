@@ -963,17 +963,17 @@ size_t findFileSizeBytes(int i, FileSystemState *fsState)
 {
     printf("I'm broken\n");
     // Assuming the currentCluster is the cluster to check
-    uint32_t tempCluster = fsState->currentCluster;
-    fsState->currentCluster = fsState->openedFiles[i].firstCluster;
+    //uint32_t tempCluster = fsState->currentCluster;
+    //fsState->currentCluster = fsState->openedFiles[i].firstCluster;
     int clusterCount = 0;
     // Check if the current cluster is the last cluster in the chain
-    while (fsState->currentCluster < 0x0FFFFFF8);
+    while (fsState->openedFiles[i].firstCluster < 0x0FFFFFF8);
     {
-        fsState->currentCluster = get_next_cluster(fsState->openedFiles[i].file_descriptor, fsState);
-        printf("%u %d", fsState->currentCluster, clusterCount);
+        printf("%u %d", fsState->openedFiles[i].firstCluster, clusterCount);
+        fsState->openedFiles[i].firstCluster = get_next_cluster(fsState->openedFiles[i].file_descriptor, fsState);
         clusterCount++;
     }
-    fsState->currentCluster = tempCluster; //restore regular current Cluster placement
+    //fsState->currentCluster = tempCluster; //restore regular current Cluster placement
     printf("jk\n");
     return clusterCount * (int)fsState->bootInfo.BPB_BytsPerSec;
 }
