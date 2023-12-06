@@ -970,6 +970,7 @@ size_t findFileSizeBytes(int i, FileSystemState *fsState)
     while (fsState->currentCluster < 0x0FFFFFF8);
     {
         fsState->currentCluster = get_next_cluster(fsState->openedFiles[i].file_descriptor, fsState);
+        printf("%u %d", fsState->currentCluster, clusterCount);
         clusterCount++;
     }
     fsState->currentCluster = tempCluster; //restore regular current Cluster placement
