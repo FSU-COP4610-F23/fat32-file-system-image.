@@ -778,7 +778,7 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
             }
 
             // Update the offset
-
+            printf("Filename: %s, FD: %d, Offset: %lld, Size: %zu\n", formattedFilename, fsState->openedFiles[i].file_descriptor, (long long)readOffset, size);
             // Print the read data
             buffer[read_bytes] = '\0'; // Null-terminate the buffer
             printf("%s\n", buffer);
