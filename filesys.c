@@ -97,7 +97,6 @@ void add_to_opened_files(FileSystemState *fsState, const char *filename, const c
 uint32_t pop_cluster(ClusterStack *stack);
 int determine_open_flags(const char *mode);
 //bool custom_append(const char *filename, char *str, FileSystemState *fsState);
-size_t findFileSizeBytes(int i, FileSystemState *fsState);
 
 
 
@@ -739,16 +738,13 @@ bool custom_lseek(const char *filename, off_t offset, FileSystemState *fsState)
 
 bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
 {
-    printf("Made it here\n");
     char formattedFilename[12];                   // Buffer for formatted filename
     format_dir_name(filename, formattedFilename); // Format the input filename
 
     for (int i = 0; i < fsState->openedFilesCount; i++)
     {
-        printf("in the loop\n");
         if (strcmp(fsState->openedFiles[i].filename, formattedFilename) == 0)
         {
-            printf("File found\n");
             // Check if file is opened in read mode
             if (strstr(fsState->openedFiles[i].mode, "r") == NULL)
             {
@@ -760,17 +756,16 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
 
             uint32_t fileSize; 
             ssize_t rd_bytes = pread(fsState->openedFiles[i].file_descriptor, &fileSize, 4, fsState->openedFiles[i].entryOffset + 28);
-            printf("%d\n", fsState->openedFiles[i].entryOffset);
+            //printf("%d\n", fsState->openedFiles[i].entryOffset);
             if (rd_bytes != sizeof(fileSize))
             {
                 perror("Error reading File Size.\n");
                 return false;
             }
-            //fileSize = findFileSizeBytes(i, fsState);
 
-            printf("File Size: %u\n", fileSize);
+            //printf("File Size: %u\n", fileSize);
             if (size > fileSize);
-                //size = fileSize;
+                size = fileSize;
 
             // Allocate buffer for reading
             char *buffer = malloc(size + 1); // +1 for null terminator
@@ -968,24 +963,6 @@ void add_to_opened_files(FileSystemState *fsState, const char *filename, const c
     return false;
 }
 */
-size_t findFileSizeBytes(int i, FileSystemState *fsState)
-{
-    printf("I'm broken\n");
-    // Assuming the currentCluster is the cluster to check
-    uint32_t tempCluster = fsState->currentCluster;
-    fsState->currentCluster = fsState->openedFiles[i].firstCluster;
-    int clusterCount = 0;
-    // Check if the current cluster is the last cluster in the chain
-    while (fsState->currentCluster < 0x0FFFFFF8)
-    {
-        printf("%u %d", fsState->currentCluster, clusterCount);
-        fsState->currentCluster = get_next_cluster(fsState->openedFiles[i].file_descriptor, fsState);
-        clusterCount++;
-    }
-    fsState->currentCluster = tempCluster; //restore regular current Cluster placement
-    printf("jk\n");
-    return clusterCount * (int)fsState->bootInfo.BPB_BytsPerSec;
-}
 
 
 void run_shell(const char *imageName, FileSystemState *fsState, int file)
@@ -1081,7 +1058,6 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
             char filename[256];
             size_t size;
             scanf("%s %zu", filename, &size);
-            printf("Hello\n");
             if (!custom_read(filename, size, fsState))
             {
                 printf("Error: Unable to read file '%s'\n", filename);
