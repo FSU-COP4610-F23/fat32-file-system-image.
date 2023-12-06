@@ -753,6 +753,7 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
 
             size_t fileSize;
             fileSize = findFileSizeBytes(i, fsState);
+            printf("%zu\n", fileSize);
             if (size > fileSize)
                 size = fileSize;
 
