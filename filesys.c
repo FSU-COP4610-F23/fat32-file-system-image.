@@ -760,6 +760,7 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
 
             uint32_t fileSize; 
             ssize_t rd_bytes = pread(fsState->openedFiles[i].file_descriptor, &fileSize, 4, fsState->openedFiles[i].entryOffset + 28);
+            printf("%d\n", entryOffset);
             if (rd_bytes != sizeof(fileSize))
             {
                 perror("Error reading File Size.\n");
@@ -844,7 +845,7 @@ void add_to_opened_files(FileSystemState *fsState, const char *filename, const c
     fsState->openedFiles[index].file_descriptor = fd;
     fsState->openedFiles[index].offset = 0;
     fsState->openedFiles[index].firstCluster = firstCluster;
-    fsState->openedFiles[index].entryOffset = entryOffset;
+    fsState->openedFiles[index].entryOffset = entryOffset + fsState->bootInfo.rootClusPosition;
 
 
     fsState->openedFilesCount++;
