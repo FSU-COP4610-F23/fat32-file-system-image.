@@ -95,7 +95,7 @@ bool custom_lseek(const char *filename, off_t offset, FileSystemState *fsState);
 void add_to_opened_files(FileSystemState *fsState, const char *filename, const char *path, uint32_t firstCluster, int fd, const char *mode);
 uint32_t pop_cluster(ClusterStack *stack);
 int determine_open_flags(const char *mode);
-bool custom_append(const char *filename, char *str, FileSystemState *fsState);
+//bool custom_append(const char *filename, char *str, FileSystemState *fsState);
 size_t findFileSizeBytes(int i, FileSystemState *fsState);
 
 
@@ -737,13 +737,16 @@ bool custom_lseek(const char *filename, off_t offset, FileSystemState *fsState)
 
 bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
 {
+    printf("Made it here\n");
     char formattedFilename[12];                   // Buffer for formatted filename
     format_dir_name(filename, formattedFilename); // Format the input filename
 
     for (int i = 0; i < fsState->openedFilesCount; i++)
     {
+        printf("in the loop\n");
         if (strcmp(fsState->openedFiles[i].filename, formattedFilename) == 0)
         {
+            printf("File found\n");
             // Check if file is opened in read mode
             if (strstr(fsState->openedFiles[i].mode, "r") == NULL)
             {
@@ -839,7 +842,7 @@ void add_to_opened_files(FileSystemState *fsState, const char *filename, const c
     fsState->openedFilesCount++;
 }
 
-bool custom_append(const char *filename, char *str, FileSystemState *fsState)
+/*bool custom_append(const char *filename, char *str, FileSystemState *fsState)
 {
     char formattedFilename[12];                   // Buffer for formatted filename
     format_dir_name(filename, formattedFilename); // Format the input filename
@@ -955,7 +958,7 @@ bool custom_append(const char *filename, char *str, FileSystemState *fsState)
     printf("Error: File '%s' not opened or does not exist.\n", formattedFilename);
     return false;
 }
-
+*/
 size_t findFileSizeBytes(int i, FileSystemState *fsState)
 {
     // Assuming the currentCluster is the cluster to check
@@ -1066,13 +1069,13 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
             char filename[256];
             size_t size;
             scanf("%s %zu", filename, &size);
-
+            printf("Hello\n");
             if (!custom_read(filename, size, fsState))
             {
                 printf("Error: Unable to read file '%s'\n", filename);
             }
         }
-        else if (strcmp(command, "append") == 0)
+        /*else if (strcmp(command, "append") == 0)
         {
             char filename[256];
             char *str = malloc(256);
@@ -1089,7 +1092,7 @@ void run_shell(const char *imageName, FileSystemState *fsState, int file)
                    free(str);
                 }
             }
-        }
+        }*/
         else
         {
             printf("Unknown command: %s\n", command);
