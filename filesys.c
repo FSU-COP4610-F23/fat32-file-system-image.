@@ -964,7 +964,7 @@ int findFileSizeBytes(int i, FileSystemState *fsState)
     // Check if the current cluster is the last cluster in the chain
     while (fsState->currentCluster < 0x0FFFFFF8);
     {
-        fsState->currentCluster = (fsState->openedFiles[i].file_descriptor, fsState);
+        fsState->currentCluster = get_next_cluster(fsState->openedFiles[i].file_descriptor, fsState);
         clusterCount++;
     }
     fsState->currentCluster = tempCluster; //restore regular current Cluster placement
