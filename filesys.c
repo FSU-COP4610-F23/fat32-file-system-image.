@@ -605,6 +605,7 @@ bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const ch
                 {
                     // File found and it's not a directory
                     *firstCluster = ((uint32_t)entry.DIR_FstClusHI << 16) | entry.DIR_FstClusLO;
+                    printf("Entry Offset: %d\n", entryOffset);
                     return true;
                 }
             }
@@ -776,8 +777,6 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
                 perror("Error: Memory allocation failed.\n");
                 return false;
             }
-
-            printf("2Filename: %s, FD: %d, Offset: %lld, Size: %zu\n", formattedFilename, fsState->openedFiles[i].file_descriptor, (long long)readOffset, size);
             // Read data from file
             ssize_t read_bytes = pread(fsState->openedFiles[i].file_descriptor, buffer, size, readOffset);
             if (read_bytes < 0)
@@ -789,7 +788,6 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
             }
 
             // Update the offset
-            printf("1Filename: %s, FD: %d, Offset: %lld, Size: %zu\n", formattedFilename, fsState->openedFiles[i].file_descriptor, (long long)readOffset, size);
             // Print the read data
             buffer[read_bytes] = '\0'; // Null-terminate the buffer
             printf("%s\n", buffer);
