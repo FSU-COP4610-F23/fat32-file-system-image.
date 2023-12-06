@@ -3,11 +3,19 @@
 CC = gcc
 
 CFLAGS = -Wall -Wextra -g -std=c99
-SRC = 
+TARGET = filesys
+SRC = filesys.c
+OBJ = $(SRC:.c=.o)
 
-filesys: filesys.c
-	$(CC) $(CFLAGS) -c filesys.c -o filesys.o
-	$(CC) $(CFLAGS) -o filesys filesys.c
+all: $(TARGET)
+
+$(TARGET): $(OBJ)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJ)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f filesys filesys.o
+	rm -f $(TARGET) $(OBJ)
+
+.PHONY: all clean
