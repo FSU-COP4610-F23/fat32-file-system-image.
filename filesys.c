@@ -760,7 +760,7 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
 
             uint32_t fileSize; 
             ssize_t rd_bytes = pread(fsState->openedFiles[i].file_descriptor, &fileSize, 4, fsState->openedFiles[i].entryOffset + 28);
-            printf("%d\n", entryOffset);
+            printf("%d\n", fsState->openedFiles[i].entryOffset);
             if (rd_bytes != sizeof(fileSize))
             {
                 perror("Error reading File Size.\n");
