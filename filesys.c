@@ -961,6 +961,7 @@ void add_to_opened_files(FileSystemState *fsState, const char *filename, const c
 */
 size_t findFileSizeBytes(int i, FileSystemState *fsState)
 {
+    printf("I'm broken\n");
     // Assuming the currentCluster is the cluster to check
     uint32_t tempCluster = fsState->currentCluster;
     fsState->currentCluster = fsState->openedFiles[i].firstCluster;
@@ -972,6 +973,7 @@ size_t findFileSizeBytes(int i, FileSystemState *fsState)
         clusterCount++;
     }
     fsState->currentCluster = tempCluster; //restore regular current Cluster placement
+    printf("jk\n");
     return clusterCount * (int)fsState->bootInfo.BPB_BytsPerSec;
 }
 
