@@ -96,7 +96,7 @@ void add_to_opened_files(FileSystemState *fsState, const char *filename, const c
 uint32_t pop_cluster(ClusterStack *stack);
 int determine_open_flags(const char *mode);
 bool custom_append(const char *filename, char *str, FileSystemState *fsState);
-int findFileSizeBytes(uint32_t firstCluster, FileSystemState *fsState);
+int findFileSizeBytes(int i, FileSystemState *fsState);
 
 
 
@@ -751,7 +751,7 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
                 return false;
             }
 
-            unsigned int fileSize;
+            int fileSize;
             fileSize = findFileSizeBytes(i, fsState);
 
             if (size > fileSize)
