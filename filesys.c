@@ -20,18 +20,17 @@ typedef struct __attribute__((packed)) BPB
     int dataSec;           // sectors in data region
     int rootClusPosition;  // address to root cluster/directory
     int rootDirSectors;    // sectors in root directory
-
     off_t image_size;
-
-    uint32_t BPB_RootClus;   // print
-    uint16_t BPB_BytsPerSec; // print
-    uint8_t BPB_SecPerClus;  // print
+    uint32_t BPB_RootClus;
+    uint16_t BPB_BytsPerSec;
+    uint8_t BPB_SecPerClus; 
     uint16_t BPB_RsvdSecCnt;
     uint32_t BPB_TotSec32;
     uint16_t BPB_RootEntCnt;
-    unsigned int total_clusters; // print
+    unsigned int total_clusters; 
     uint8_t BPB_NumFATs;
-    uint32_t BPB_FATSz32; // print
+    uint32_t BPB_FATSz32;
+    uint32_t EntriesPerFAT; 
 } boot_sector_info;
 
 typedef struct
@@ -45,6 +44,7 @@ typedef struct
     char filename[256];
     int file_descriptor;
     uint32_t firstCluster;
+    int entryOffset;
     char mode[5];
     char path[256];
     off_t offset;
@@ -90,7 +90,7 @@ void split_name_ext(const char *entryName, char *name, char *ext);
 void format_dir_name(const char *input, char *formatted);
 void push_cluster(ClusterStack *stack, uint32_t cluster);
 bool custom_lseek(const char *filename, off_t offset, FileSystemState *fsState);
-void add_to_opened_files(FileSystemState *fsState, const char *filename, const char *path, uint32_t firstCluster, int fd, const char *mode);
+void add_to_opened_files(FileSystemState *fsState, const char *filename, const char *path, uint32_t firstCluster, int fd, const char *mode, int entryOffset);
 uint32_t pop_cluster(ClusterStack *stack);
 int determine_open_flags(const char *mode);
 
@@ -198,13 +198,24 @@ void parse_boot_sector(int file, FileSystemState *fsState)
     fsState->currentCluster = fsState->bootInfo.BPB_RootClus;
 
     // Calculate the data region's first sector
-    fsState->bootInfo.dataRegionAddress = fsState->bootInfo.BPB_RsvdSecCnt + (fsState->bootInfo.BPB_NumFATs * fsState->bootInfo.BPB_FATSz32);
+    fsState->bootInfo.dataRegionAddress = fsState->bootInfo.BPB_RsvdSecCnt * fsState->bootInfo.BPB_BytsPerSec + 
+    (fsState->bootInfo.BPB_NumFATs * fsState->bootInfo.BPB_FATSz32 * fsState->bootInfo.BPB_BytsPerSec);
 
-    // Calculate total data sectors
-    fsState->bootInfo.dataSec = fsState->bootInfo.BPB_TotSec32 - fsState->bootInfo.dataRegionAddress;
+    // Set root cluster postition to data region address
+    fsState->bootInfo.rootClusPosition = fsState->bootInfo.dataRegionAddress;
 
+   // Calculate total data sectors
+    fsState->bootInfo.dataSec = fsState->bootInfo.BPB_TotSec32 - (fsState->bootInfo.BPB_RsvdSecCnt + 
+    (fsState->bootInfo.BPB_NumFATs * fsState->bootInfo.BPB_FATSz32) + fsState->bootInfo.rootDirSectors);
+    
     // Calculate total clusters in data region
     fsState->bootInfo.total_clusters = fsState->bootInfo.dataSec / fsState->bootInfo.BPB_SecPerClus;
+
+    // Find size of fat32.img
+    fsState->bootInfo.image_size = lseek(file, 0, SEEK_END);
+
+    // Calculate the number of entries in one FAT
+    fsState->bootInfo.EntriesPerFAT = fsState->bootInfo.BPB_FATSz32 * fsState->bootInfo.BPB_BytsPerSec / 4;
 }
 
 void display_boot_sector_info(const FileSystemState *fsState)
@@ -632,7 +643,8 @@ bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filenam
     printf("Attempting to open file at path: %s\n", fullPath);
 
     uint32_t firstCluster;
-    if (!find_file_in_cluster(fileDescriptor, fsState, formattedFilename, &firstCluster))
+    int entryOffset = find_file_in_cluster(fileDescriptor, fsState, formattedFilename, &firstCluster);
+    if (entryOffset == -1)
     {
         printf("Error: File '%s' does not exist in %s.\n", formattedFilename, fsState->currentWorkingDir);
         return false;
@@ -647,7 +659,7 @@ bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filenam
         return false;
     }
 
-    add_to_opened_files(fsState, formattedFilename, fullPath, firstCluster, fd, mode);
+    add_to_opened_files(fsState, formattedFilename, fullPath, firstCluster, fd, mode, entryOffset);
 
     printf("Opened File\n");
     // printf("Opened file '%s' with FD: %d\n", formattedFilename, fd);
@@ -734,6 +746,22 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
                 return false;
             }
 
+            off_t readOffset = (fsState->openedFiles[i].firstCluster - 2) * fsState->bootInfo.BPB_BytsPerSec 
+                                + fsState->bootInfo.rootClusPosition + fsState->openedFiles[i].offset;
+
+
+             uint32_t fileSize; 
+            ssize_t rd_bytes = pread(fsState->openedFiles[i].file_descriptor, &fileSize, 4, fsState->openedFiles[i].entryOffset + 28);
+            //printf("%d\n", fsState->openedFiles[i].entryOffset);
+            if (rd_bytes != sizeof(fileSize))
+            {
+                perror("Error reading File Size.\n");
+                return false;
+            }
+
+            if (size > fileSize)
+                size = fileSize;
+
             // Allocate buffer for reading
             char *buffer = malloc(size + 1); // +1 for null terminator
             if (buffer == NULL)
@@ -743,18 +771,16 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
             }
 
             // Read data from file
-            ssize_t read_bytes = pread(fsState->openedFiles[i].file_descriptor, buffer, size, fsState->openedFiles[i].offset);
+            ssize_t read_bytes = pread(fsState->openedFiles[i].file_descriptor, buffer, size, readOffset);
             if (read_bytes < 0)
             {
                 perror("Error reading file");
-                printf("Filename: %s, FD: %d, Offset: %lld, Size: %zu\n", formattedFilename, fsState->openedFiles[i].file_descriptor, (long long)fsState->openedFiles[i].offset, size);
+                printf("Filename: %s, FD: %d, Offset: %lld, Size: %zu\n", formattedFilename, fsState->openedFiles[i].file_descriptor, (long long)readOffset, size);
                 free(buffer);
                 return false;
             }
 
-            // Update the offset
 
-            // Print the read data
             buffer[read_bytes] = '\0'; // Null-terminate the buffer
             printf("%s\n", buffer);
 
@@ -784,7 +810,7 @@ int determine_open_flags(const char *mode)
     return -1; // Invalid mode
 }
 
-void add_to_opened_files(FileSystemState *fsState, const char *filename, const char *path, uint32_t firstCluster, int fd, const char *mode)
+void add_to_opened_files(FileSystemState *fsState, const char *filename, const char *path, uint32_t firstCluster, int fd, const char *mode, int entryOffset)
 {
     if (fsState->openedFilesCount >= 100)
     { // Check if max opened file limit is reached
@@ -809,7 +835,7 @@ void add_to_opened_files(FileSystemState *fsState, const char *filename, const c
     fsState->openedFiles[index].file_descriptor = fd;
     fsState->openedFiles[index].offset = 0;
     fsState->openedFiles[index].firstCluster = firstCluster;
-
+    fsState->openedFiles[index].entryOffset = entryOffset + fsState->bootInfo.rootClusPosition;
     fsState->openedFilesCount++;
 }
 
