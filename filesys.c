@@ -967,7 +967,7 @@ size_t findFileSizeBytes(int i, FileSystemState *fsState)
     //fsState->currentCluster = fsState->openedFiles[i].firstCluster;
     int clusterCount = 0;
     // Check if the current cluster is the last cluster in the chain
-    while (fsState->openedFiles[i].firstCluster < 0x0FFFFFF8);
+    while (fsState->openedFiles[i].firstCluster < 0x0FFFFFF8)
     {
         printf("%u %d", fsState->openedFiles[i].firstCluster, clusterCount);
         fsState->openedFiles[i].firstCluster = get_next_cluster(fsState->openedFiles[i].file_descriptor, fsState);
