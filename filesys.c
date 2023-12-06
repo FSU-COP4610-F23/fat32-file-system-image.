@@ -764,7 +764,7 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
             }
 
             //printf("File Size: %u\n", fileSize);
-            if (size > fileSize);
+            if (size > fileSize)
                 size = fileSize;
 
             // Allocate buffer for reading
