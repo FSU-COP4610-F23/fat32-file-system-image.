@@ -50,6 +50,7 @@ typedef struct
     char mode[5];
     char path[256];
     off_t offset;
+    DirectoryEntry DIR_Entry;
 } OpenedFile;
 
 typedef struct
@@ -754,8 +755,10 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
                 return false;
             }
 
-            size_t fileSize;
-            fileSize = findFileSizeBytes(i, fsState);
+            uint32_t fileSize = pread(fsState->openedFiles[i].file_descriptor, &fsState->openedFiles[i].DIR_entry.fileSize, 
+                                      sizeof(fsState->openedFiles[i].DIR_entry.fileSize), 28);
+            //fileSize = findFileSizeBytes(i, fsState);
+
             printf("%zu\n", fileSize);
             if (size > fileSize)
                 size = fileSize;
