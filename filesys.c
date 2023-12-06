@@ -756,7 +756,7 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
 
     
             uint32_t fileSize; 
-            ssize_t rd_bytes = pread(fsState->openedFiles[i].file_descriptor, &fileSize, sizeof(fileSize), 28);
+            ssize_t rd_bytes = pread(fsState->openedFiles[i].file_descriptor, fileSize, sizeof(fileSize), 28);
             if (rd_bytes != sizeof(fileSize))
             {
                 perror("Error reading File Size.\n");
