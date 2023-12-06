@@ -752,10 +752,7 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
             }
 
             int fileSize;
-            printf("5Filename: %s, FD: %d, Offset: %lld, Size: %zu\n", formattedFilename, fsState->openedFiles[i].file_descriptor, (long long)readOffset, size);
-
             fileSize = findFileSizeBytes(i, fsState);
-            printf("4Filename: %s, FD: %d, Offset: %lld, Size: %zu\n", formattedFilename, fsState->openedFiles[i].file_descriptor, (long long)readOffset, size);
             if (size > fileSize)
                 size = fileSize;
 
@@ -766,7 +763,6 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
                 printf("Error: Memory allocation failed.\n");
                 return false;
             }
-            printf("3Filename: %s, FD: %d, Offset: %lld, Size: %zu\n", formattedFilename, fsState->openedFiles[i].file_descriptor, (long long)readOffset, size);
 
             off_t readOffset = (fsState->openedFiles[i].firstCluster - 2) * fsState->bootInfo.BPB_BytsPerSec;
 
