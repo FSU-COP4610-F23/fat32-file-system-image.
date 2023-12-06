@@ -47,6 +47,7 @@ typedef struct
     char filename[256];
     int file_descriptor;
     uint32_t firstCluster;
+    int entryOffset;
     char mode[5];
     char path[256];
     off_t offset;
@@ -83,7 +84,7 @@ void display_boot_sector_info(const FileSystemState *fsState);
 void print_directory_entries(int file, FileSystemState *fsState);
 void list_directory(int file, FileSystemState *fsState);
 bool find_directory_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *dirName, uint32_t *nextCluster);
-bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *fileName, uint32_t *firstCluster);
+int find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *fileName, uint32_t *firstCluster);
 bool close_file(FileSystemState *fsState, const char *filename);
 uint32_t get_next_cluster(int file, FileSystemState *fsState);
 void change_directory(FileSystemState *fsState, const char *dirname, int fileDescriptor);
@@ -92,7 +93,7 @@ void split_name_ext(const char *entryName, char *name, char *ext);
 void format_dir_name(const char *input, char *formatted);
 void push_cluster(ClusterStack *stack, uint32_t cluster);
 bool custom_lseek(const char *filename, off_t offset, FileSystemState *fsState);
-void add_to_opened_files(FileSystemState *fsState, const char *filename, const char *path, uint32_t firstCluster, int fd, const char *mode);
+void add_to_opened_files(FileSystemState *fsState, const char *filename, const char *path, uint32_t firstCluster, int fd, const char *mode, int entryOffset);
 uint32_t pop_cluster(ClusterStack *stack);
 int determine_open_flags(const char *mode);
 //bool custom_append(const char *filename, char *str, FileSystemState *fsState);
@@ -563,7 +564,7 @@ void format_dir_name(const char *input, char *formatted)
     // printf("format_dir_name Formatted directory name: '%s'\n", formatted); // Debug print
 }
 
-bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *fileName, uint32_t *firstCluster)
+int find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const char *fileName, uint32_t *firstCluster)
 {
     char formattedFileName[12];
     format_dir_name(fileName, formattedFileName);
@@ -593,7 +594,7 @@ bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const ch
                 if ((unsigned char)entry.DIR_Name[0] == 0x00)
                 {
                     printf("Debug: Reached end of directory entries\n");
-                    return false;
+                    return -1;
                 }
                 if ((unsigned char)entry.DIR_Name[0] == 0xE5)
                 {
@@ -605,8 +606,7 @@ bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const ch
                 {
                     // File found and it's not a directory
                     *firstCluster = ((uint32_t)entry.DIR_FstClusHI << 16) | entry.DIR_FstClusLO;
-                    printf("Entry Offset: %d\n", entryOffset);
-                    return true;
+                    return entryOffset;
                 }
             }
         }
@@ -616,7 +616,7 @@ bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const ch
     }
 
     printf("Debug: File '%s' not found\n", formattedFileName);
-    return false; // File not found
+    return -1; // File not found
 }
 
 bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filename, const char *mode)
@@ -650,7 +650,8 @@ bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filenam
     printf("Attempting to open file at path: %s\n", fullPath);
 
     uint32_t firstCluster;
-    if (!find_file_in_cluster(fileDescriptor, fsState, formattedFilename, &firstCluster))
+    int entryOffset = find_file_in_cluster(fileDescriptor, fsState, formattedFilename, &firstCluster);
+    if (entryOffset == -1)
     {
         printf("Error: File '%s' does not exist in %s.\n", formattedFilename, fsState->currentWorkingDir);
         return false;
@@ -665,7 +666,7 @@ bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filenam
         return false;
     }
 
-    add_to_opened_files(fsState, formattedFilename, fullPath, firstCluster, fd, mode);
+    add_to_opened_files(fsState, formattedFilename, fullPath, firstCluster, fd, mode, entryOffset);
 
     printf("Opened File\n");
     // printf("Opened file '%s' with FD: %d\n", formattedFilename, fd);
@@ -758,7 +759,7 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
             off_t readOffset = (fsState->openedFiles[i].firstCluster - 2) * fsState->bootInfo.BPB_BytsPerSec + fsState->bootInfo.rootClusPosition;
 
             uint32_t fileSize; 
-            ssize_t rd_bytes = pread(fsState->openedFiles[i].file_descriptor, &fileSize, 4, 28);
+            ssize_t rd_bytes = pread(fsState->openedFiles[i].file_descriptor, &fileSize, 4, fsState->openedFiles[i].entryOffset + 28);
             if (rd_bytes != sizeof(fileSize))
             {
                 perror("Error reading File Size.\n");
@@ -818,7 +819,7 @@ int determine_open_flags(const char *mode)
     return -1; // Invalid mode
 }
 
-void add_to_opened_files(FileSystemState *fsState, const char *filename, const char *path, uint32_t firstCluster, int fd, const char *mode)
+void add_to_opened_files(FileSystemState *fsState, const char *filename, const char *path, uint32_t firstCluster, int fd, const char *mode, int entryOffset)
 {
     if (fsState->openedFilesCount >= 100)
     { // Check if max opened file limit is reached
@@ -843,6 +844,8 @@ void add_to_opened_files(FileSystemState *fsState, const char *filename, const c
     fsState->openedFiles[index].file_descriptor = fd;
     fsState->openedFiles[index].offset = 0;
     fsState->openedFiles[index].firstCluster = firstCluster;
+    fsState->openedFiles[index].entryOffset = entryOffset;
+
 
     fsState->openedFilesCount++;
 }
