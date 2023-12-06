@@ -50,7 +50,6 @@ typedef struct
     char mode[5];
     char path[256];
     off_t offset;
-    DirectoryEntry DIR_Entry;
 } OpenedFile;
 
 typedef struct
@@ -63,7 +62,7 @@ typedef struct
     ClusterStack directoryStack;
 } FileSystemState;
 
-typedef struct __attribute__((packed)) DirectoryEntry
+typedef struct __attribute__((packed)) DIR
 {
     char DIR_Name[11];
     uint8_t DIR_Attr;
@@ -755,8 +754,14 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
                 return false;
             }
 
-            uint32_t fileSize = pread(fsState->openedFiles[i].file_descriptor, &fsState->openedFiles[i].DIR_entry.fileSize, 
-                                      sizeof(fsState->openedFiles[i].DIR_entry.fileSize), 28);
+    
+            uint32_t fileSize; 
+            ssize_t rd_bytes = pread(fsState->openedFiles[i].file_descriptor, &fileSize, sizeof(fileSize), 28);
+            if (rd_bytes != sizeof(fileSize))
+            {
+                perror("Error reading File Size.\n");
+                return;
+            }
             //fileSize = findFileSizeBytes(i, fsState);
 
             printf("%zu\n", fileSize);
@@ -767,7 +772,7 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
             char *buffer = malloc(size + 1); // +1 for null terminator
             if (buffer == NULL)
             {
-                printf("Error: Memory allocation failed.\n");
+                perror("Error: Memory allocation failed.\n");
                 return false;
             }
 
