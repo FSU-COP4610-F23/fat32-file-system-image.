@@ -96,7 +96,7 @@ void add_to_opened_files(FileSystemState *fsState, const char *filename, const c
 uint32_t pop_cluster(ClusterStack *stack);
 int determine_open_flags(const char *mode);
 bool custom_append(const char *filename, char *str, FileSystemState *fsState);
-
+int findFileSizeBytes(uint32_t firstCluster, FileSystemState *fsState);
 
 
 
@@ -751,9 +751,10 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
                 return false;
             }
 
-            unsigned int fileSize = findFileSizeBytes(fsState->openedFiles[i].firstCluster, fsState);
+            unsigned int fileSize;
+            fileSize = findFileSizeBytes(i, fsState);
 
-            if (size > filesize)
+            if (size > fileSize)
                 size = fileSize;
 
             // Allocate buffer for reading
@@ -954,18 +955,20 @@ bool custom_append(const char *filename, char *str, FileSystemState *fsState)
     return false;
 }
 
-unsigned int findFileSizeBytes(uint32_t firstCluster, FileSystemState *fsState)
+int findFileSizeBytes(int i, FileSystemState *fsState)
 {
     // Assuming the currentCluster is the cluster to check
-    unsigned int currentCluster = firstCluster;
-    unsigned int clusterCount = 0;
+    uint32_t tempCluster = fsState->currentCluster;
+    fsState->currentCluster = fsState->openedFiles[i].firstCluster;
+    int clusterCount = 0;
     // Check if the current cluster is the last cluster in the chain
-    while (currentCluster < 0x0FFFFFF8);
+    while (fsState->currentCluster < 0x0FFFFFF8);
     {
-        get_next_cluster(currentCluster);
+        fsState->currentCluster = (fsState->openedFiles[i].file_descriptor, fsState);
         clusterCount++;
     }
-    return clusterCount * fsState->bootInfo.BPB_BytsPerSec;
+    fsState->currentCluster = tempCluster; //restore regular current Cluster placement
+    return clusterCount * (int)fsState->bootInfo.BPB_BytsPerSec;
 }
 
 
