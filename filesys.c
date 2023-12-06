@@ -752,7 +752,8 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
                 return false;
             }
 
-            off_t readOffset = (fsState->openedFiles[i].firstCluster - 2) * fsState->bootInfo.BPB_BytsPerSec + fsState->bootInfo.rootClusPosition;
+            off_t readOffset = (fsState->openedFiles[i].firstCluster - 2) * fsState->bootInfo.BPB_BytsPerSec 
+                                + fsState->bootInfo.rootClusPosition + fsState->openedFiles[i].offset;
 
             uint32_t fileSize; 
             ssize_t rd_bytes = pread(fsState->openedFiles[i].file_descriptor, &fileSize, 4, fsState->openedFiles[i].entryOffset + 28);
