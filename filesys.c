@@ -96,7 +96,7 @@ void add_to_opened_files(FileSystemState *fsState, const char *filename, const c
 uint32_t pop_cluster(ClusterStack *stack);
 int determine_open_flags(const char *mode);
 bool custom_append(const char *filename, char *str, FileSystemState *fsState);
-int findFileSizeBytes(int i, FileSystemState *fsState);
+size_t findFileSizeBytes(int i, FileSystemState *fsState);
 
 
 
@@ -751,7 +751,7 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
                 return false;
             }
 
-            int fileSize;
+            size_t fileSize;
             fileSize = findFileSizeBytes(i, fsState);
             if (size > fileSize)
                 size = fileSize;
@@ -955,7 +955,7 @@ bool custom_append(const char *filename, char *str, FileSystemState *fsState)
     return false;
 }
 
-int findFileSizeBytes(int i, FileSystemState *fsState)
+size_t findFileSizeBytes(int i, FileSystemState *fsState)
 {
     // Assuming the currentCluster is the cluster to check
     uint32_t tempCluster = fsState->currentCluster;
