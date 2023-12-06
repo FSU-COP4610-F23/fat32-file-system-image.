@@ -779,7 +779,7 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
 
             printf("2Filename: %s, FD: %d, Offset: %lld, Size: %zu\n", formattedFilename, fsState->openedFiles[i].file_descriptor, (long long)readOffset, size);
             // Read data from file
-            ssize_t read_bytes = pread(fsState->openedFiles[i].file_descriptor, buffer, size, 1049696);
+            ssize_t read_bytes = pread(fsState->openedFiles[i].file_descriptor, buffer, size, readOffset);
             if (read_bytes < 0)
             {
                 perror("Error reading file");
