@@ -760,11 +760,11 @@ bool custom_read(const char *filename, size_t size, FileSystemState *fsState)
             if (rd_bytes != sizeof(fileSize))
             {
                 perror("Error reading File Size.\n");
-                return;
+                return false;
             }
             //fileSize = findFileSizeBytes(i, fsState);
 
-            printf("%zu\n", fileSize);
+            printf("%u\n", fileSize);
             if (size > fileSize)
                 size = fileSize;
 
