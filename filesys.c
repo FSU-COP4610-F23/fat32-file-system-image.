@@ -382,6 +382,7 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
         return;
     }
 
+/*
     if (strcmp(dirname, "..") == 0)
     {
         if (fsState->directoryStack.top >= 0)
@@ -398,6 +399,7 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
                 }
                 else
                 {
+                    
                     *(lastSlash + 1) = '\0'; // Keep the root '/'
                 }
             }
@@ -410,6 +412,32 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
             return;
         }
         return;
+    }
+*/
+
+    if (strcmp(dirname, "..") == 0)
+    {
+        if (fsState->directoryStack.top > -1)
+        {
+            fsState->currentCluster = pop_cluster(&fsState->directoryStack);
+
+            // Update currentWorkingDir to reflect the parent directory
+            char *lastSlash = strrchr(fsState->currentWorkingDir, '/');
+            if (lastSlash != NULL && lastSlash != fsState->currentWorkingDir)
+            {
+                *lastSlash = '\0'; // Cut the string at the last slash
+            }
+            else
+            {
+                strcpy(fsState->currentWorkingDir, "/"); // Set to root if no other slashes found
+            }
+            return;
+        }
+        else
+        {
+            printf("Already at root directory.\n");
+            return;
+        }
     }
 
     push_cluster(&fsState->directoryStack, fsState->currentCluster);
