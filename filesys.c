@@ -382,38 +382,6 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
         return;
     }
 
-/*
-    if (strcmp(dirname, "..") == 0)
-    {
-        if (fsState->directoryStack.top >= 0)
-        {
-            fsState->currentCluster = pop_cluster(&fsState->directoryStack);
-
-            // Update currentWorkingDir to reflect the parent directory
-            if (strcmp(fsState->currentWorkingDir, "/") != 0)
-            {
-                char *lastSlash = strrchr(fsState->currentWorkingDir, '/');
-                if (lastSlash != fsState->currentWorkingDir)
-                {
-                    *lastSlash = '\0'; // Cut the string at the last slash
-                }
-                else
-                {
-                    
-                    *(lastSlash + 1) = '\0'; // Keep the root '/'
-                }
-            }
-        }
-
-        if (strcmp(fsState->currentWorkingDir, "/"))
-        {
-            strcpy(fsState->currentWorkingDir, "/");
-            fsState->currentCluster = fsState->bootInfo.BPB_RootClus;
-            return;
-        }
-        return;
-    }
-*/
 
     if (strcmp(dirname, "..") == 0)
     {
@@ -442,8 +410,13 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
 
     push_cluster(&fsState->directoryStack, fsState->currentCluster);
 
+    
     // Format the directory name to FAT32 8.3 format
     format_dir_name(dirname, formattedDirName);
+
+    int32_t originalCluster = fsState->currentCluster;
+    char originalWorkingDir[256];
+    strcpy(originalWorkingDir, fsState->currentWorkingDir);
 
     if (find_directory_in_cluster(fileDescriptor, fsState, formattedDirName, &nextCluster))
     {
@@ -452,14 +425,16 @@ void change_directory(FileSystemState *fsState, const char *dirname, int fileDes
         {
             strcat(fsState->currentWorkingDir, "/");
         }
-        strcat(fsState->currentWorkingDir, dirname);
 
+        strcat(fsState->currentWorkingDir, dirname);
         fsState->currentCluster = nextCluster;
         // printf("change_directory Changed directory to '%s', new cluster: %u\n", fsState->currentWorkingDir, fsState->currentCluster);
     }
     else
     {
         printf("error: '%s' does not exist\n", dirname);
+        fsState->currentCluster = originalCluster;
+        strcpy(fsState->currentWorkingDir, originalWorkingDir);
     }
 }
 
