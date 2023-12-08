@@ -594,19 +594,23 @@ bool find_file_in_cluster(int fileDescriptor, FileSystemState *fsState, const ch
                 }
                 if ((unsigned char)entry.DIR_Name[0] == 0xE5)
                 {
-                    continue; // Deleted entry
+                    continue; 
                 }
 
-                // Check if entry is a valid file
-                if (strncmp(entry.DIR_Name, formattedFileName, 11) == 0 && !(entry.DIR_Attr & 0x10))
-                {
-                    // File found and it's not a directory
-                    *firstCluster = ((uint32_t)entry.DIR_FstClusHI << 16) | entry.DIR_FstClusLO;
-                    return true;
+                if (strncmp(entry.DIR_Name, formattedFileName, 11) == 0) {
+                    if (!(entry.DIR_Attr & 0x10)) {
+                        // File found and it's not a directory
+                        *firstCluster = ((uint32_t)entry.DIR_FstClusHI << 16) | entry.DIR_FstClusLO;
+                        return true;
+                    } else {
+                        // It's a directory, not a file
+                        return false;
+                    }
                 }
             }
         }
 
+        
         // Move to next cluster
         fsState->currentCluster = get_next_cluster(fileDescriptor, fsState);
     }
@@ -643,11 +647,12 @@ bool open_file(int fileDescriptor, FileSystemState *fsState, const char *filenam
     }
 
     // Check if the file exists in the current directory
-    printf("Attempting to open file at path: %s\n", fullPath);
+    // printf("Attempting to open file at path: %s\n", fullPath);
 
     uint32_t firstCluster;
     int entryOffset = find_file_in_cluster(fileDescriptor, fsState, formattedFilename, &firstCluster);
-    if (entryOffset == -1)
+    // if (entryOffset == -1)
+    if (!entryOffset)
     {
         printf("Error: File '%s' does not exist in %s.\n", formattedFilename, fsState->currentWorkingDir);
         return false;
