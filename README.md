@@ -79,20 +79,6 @@ ls -> [5 pts]
 
 **Assigned to**: Angela Fields
 
-### Part 3: Create
-**Responsibilities**: 
-You will need to create commands that will allow the user to create files and directories.
-
-mkdir [DIRNAME] -> [8 pts]
-* Creates a new directory in the current working directory with the name [DIRNAME].
-    * Print an error if a directory/file called [DIRNAME] already exists.
-
-creat [FILENAME] -> [7 pts]
-* Creates a file in the current working directory with a size of 0 bytes and with a name of [FILENAME]. The [FILENAME] is a valid file name, not the absolute path to a file.
-  * Print an error if a directory/file called [FILENAME] already exists.
-
-- **Assigned to**: Angela Fields
-
 ### Part 4: Read [20 points]
 **Responsibilities**:
 You will need to create commands that will read from opened files. Create a structure that stores which files are opened.
@@ -133,45 +119,13 @@ Update the offset of the file to offset + [SIZE] (or to the size of the file if 
 end of the file).
 Print an error if [FILENAME] does not exist, if [FILENAME] is a directory, or if the file is not
 opened for reading.
-**Assigned to**: Jasmine Masopeh, Juancarlos Alguera, Angela Fields
-
-### Part 5: Update [10 points]
-**Responsibilities**: 
-You will need to implement the functionality that allows the user to write to a file.
-write [FILENAME] [STRING] -> [10 pts]
-Writes to a file in the current working directory with the name [FILENAME].
-Start writing at the file’s offset and stop after writing [STRING].
-[STRING] is enclosed in “”. You do not need to wrong about “” in [STRING].
-If offset + size of [STRING] is larger than the size of the file, you will need to extend the 
-length of the file to at least hold the data being written.
-Update the offset of the file to offset + size of [STRING].
-Print an error if [FILENAME] does not exist, if [FILENAME] is a directory, or if the file is not 
-opened for writing.
-
-- **Assigned to**: Angela Fields, Jasmine Masopeh
-
-### Part 6: Delete [10 points]
-**Responsibilities**: 
-You will need to implement the functionality that allows the user to delete a file/directory.
-rm [FILENAME] -> [10 pts] (changed from 5 pts to 10 pts)
-Deletes the file named [FILENAME] from the current working directory.
-This means removing the entry in the directory as well as reclaiming the actual file data.
-Print an error if [FILENAME] does not exist or if the file is a directory or if it is opened.
-rmdir [DIRNAME] -> [5 pts]
-Removed from the task.
-Remove a directory by the name of [DIRNAME] from the current working directory.
-This command alone can only be used on an empty directory (do not remove 
-“.” and “..”).
-Make sure to remove the entry from the current working directory and to remove the 
-data [DIRNAME] points to.
-Print an error if the [DIRNAME] does not exist, if [DIRNAME] is not a directory, or
-[DIRNAME] is not an empty directory or if a file is opened in that directory.
-- **Assigned to**: Juancarlos Alguera, Jasmine Masopeh
+**Assigned to**: Jasmine Masopeh, Juancarlos Alguera
 
 ## File Listing
 ```
 project-3-group-5/
 ├── filesys.c
+├── fat32.img
 ├── Makefile
 └── README.md
 
@@ -182,7 +136,6 @@ project-3-group-5/
 - **Compiler**: e.g., `gcc` for C/C++, `rustc` for Rust.
 - **Dependencies**: List any libraries or frameworks necessary (rust only).
 
-## Part 1
 
 ### Compilation
 For a C/C++ example:
@@ -191,39 +144,12 @@ make
 ```
 This will build the executable in ...
 ### Execution
-We don't really excute this part. The most you can do is look into the empty.trace and part1.trace to find the differences and how the syscalls in part1 affected it.
-
-## Part 2
-
-### Compilation
-For a C/C++ example:
-
-```
-This will build the executable in /part2
-### Execution
-To insert the kernel module:
-
-For usage: 
-
-
-
-## Part 3
-
-### Compilation
-For a C/C++ example:
 ```bash
-
+.\filesys fat32.img
 ```
-This will build the executable in /part3
-### Execution
-```bash
-
-```
-This will run the program ...
-
 
 ## Bugs
-- Should be none, any bugs caught in testing were fixed 
+- Should be none, any bugs caught in testing were fixed
 
 
 ## Considerations
