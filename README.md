@@ -77,7 +77,7 @@ ls -> [5 pts]
 “..” directories.
     * For simplicity, you may print each of the directory entries on separate lines.
 
-**Assigned to**: Angela Fields
+**Assigned to**: Angela Fields, Jasmine Masopeh
 
 ### Part 4: Read [20 points]
 **Responsibilities**:
