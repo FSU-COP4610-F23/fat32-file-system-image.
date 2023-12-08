@@ -12,14 +12,13 @@
 #include <stdbool.h>
 #include <ctype.h>
 
-// Define the structure for the boot sector information
+
 typedef struct __attribute__((packed)) BPB
 {
-
-    int dataRegionAddress; // address to data region
-    int dataSec;           // sectors in data region
-    int rootClusPosition;  // address to root cluster/directory
-    int rootDirSectors;    // sectors in root directory
+    int dataRegionAddress; 
+    int dataSec;          
+    int rootClusPosition;
+    int rootDirSectors;    
     off_t image_size;
     uint32_t BPB_RootClus;
     uint16_t BPB_BytsPerSec;
