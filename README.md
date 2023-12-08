@@ -223,8 +223,9 @@ This will run the program ...
 
 
 ## Bugs
-- **Bug 1**:
+- Should be none, any bugs caught in testing were fixed 
 
 
 ## Considerations
+- If there are any bugs we didn't catch, it's due to us moving on to study for finals after the project got cut down. We appreciate the project parts being cut down so we could focus more on the final for this class. <3 
 </>
